@@ -30,10 +30,10 @@ jobs:
     timeout-minutes: 180
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -46,7 +46,7 @@ jobs:
 
       - name: Restaurar caché de semilla
         id: seed-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: data/seed
           key: ${{ env.SEED_CACHE_KEY }}-${{ hashFiles('loteria_hist/sync_selae.py', 'loteria_hist/parse_selae.py', 'scripts/build_seed_db.py') }}
@@ -61,7 +61,7 @@ jobs:
           ls -lh data/seed/
 
       - name: Subir artefacto semilla
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: seed-database
           path: data/seed/
@@ -75,7 +75,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Dependencias del sistema
         run: |
@@ -86,7 +86,7 @@ jobs:
 
       - name: Descargar semilla
         if: needs.build-seed.result == 'success'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: seed-database
           path: data/seed
@@ -99,7 +99,7 @@ jobs:
           ./scripts/build_linux_deb.sh
 
       - name: Subir .deb
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-deb
           path: dist/installers/linux-*/markloto_*.deb
@@ -112,14 +112,14 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Inno Setup 6
         run: choco install innosetup -y --no-progress
 
       - name: Descargar semilla
         if: needs.build-seed.result == 'success'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: seed-database
           path: data/seed
@@ -131,7 +131,7 @@ jobs:
         run: ./scripts/build_windows.ps1
 
       - name: Subir Setup.exe
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-setup
           path: dist/installers/windows-x64/Markloto-*-win64-Setup.exe
@@ -146,7 +146,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Versión
         id: ver
@@ -157,7 +157,7 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Descargar artefactos
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: release-assets
           merge-multiple: true
@@ -172,7 +172,7 @@ jobs:
           cat dist/release/SHA256SUMS.txt
 
       - name: Crear GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
           name: Markloto ${{ steps.ver.outputs.version }}
