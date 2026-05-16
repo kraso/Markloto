@@ -8,11 +8,12 @@ git init
 git add .
 git commit -m "Initial commit: Markloto"
 git branch -M main
-git remote add origin https://github.com/TU_USUARIO/markloto.git
+git remote add origin https://github.com/kraso/Markloto.git
 git push -u origin main
 ```
 
-Sustituye `TU_USUARIO/markloto` por tu repositorio real.
+Si `origin` ya existe con una URL incorrecta:  
+`git remote set-url origin https://github.com/kraso/Markloto.git`
 
 ## 2. Comprobar la versión
 
