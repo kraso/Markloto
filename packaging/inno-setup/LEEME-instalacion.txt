@@ -1,0 +1,25 @@
+Markloto - Instalacion completada
+=================================
+
+Gracias por instalar Markloto.
+
+La aplicacion incluye Python y todas las dependencias necesarias.
+No necesitas instalar nada mas.
+
+DATOS Y BASE DE DATOS
+---------------------
+Tus sorteos y la base de datos se guardan en:
+
+  %LOCALAPPDATA%\Markloto\data\loterias.sqlite
+
+(Ejemplo: C:\Users\TuUsuario\AppData\Local\Markloto\data\)
+
+Al desinstalar, esos datos no se borran automaticamente.
+
+USO
+---
+Inicia Markloto desde el menu Inicio o el icono del escritorio.
+Usa "Sincronizar SELAE" para descargar historico (requiere Internet).
+
+Autor: Marcos Calabres Ibanez
+markbiophysicist@gmail.com

@@ -1,0 +1,14 @@
+Package: markloto
+Version: @VERSION@
+Section: games
+Priority: optional
+Architecture: @ARCH@
+Depends: libc6 (>= 2.31), libx11-6, libxcb1, libxext6, libxrender1, libgl1, libglib2.0-0, libgomp1, libfontconfig1, libsm6, libice6
+Maintainer: Marcos Calabrés Ibáñez <markbiophysicist@gmail.com>
+Homepage: https://github.com/
+Description: Markloto — análisis histórico de loterías SELAE
+ Markloto es una aplicación de escritorio para consultar estadísticas
+ históricas de Euromillones, Bonoloto y La Primitiva (datos SELAE).
+ .
+ No predice resultados ni garantiza premios. Uso informativo.
+Installed-Size: @INSTALLED_SIZE@

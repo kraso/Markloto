@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Markloto
+Comment=Análisis histórico Euromillones, Bonoloto y Primitiva
+Exec=markloto
+Terminal=false
+Categories=Game;Utility;
+Keywords=loteria;euromillones;bonoloto;primitiva;selae;
+StartupWMClass=markloto

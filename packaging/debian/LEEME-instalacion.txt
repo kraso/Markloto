@@ -1,0 +1,19 @@
+Markloto — instalación en Linux (paquete .deb)
+==============================================
+
+Instalar:
+
+  sudo dpkg -i markloto-VERSION-ARCH.deb
+  sudo apt-get install -f
+
+Si faltan dependencias del sistema, apt-get install -f las resolverá.
+
+Desinstalar:
+
+  sudo apt remove markloto
+
+Datos del usuario (no se borran al desinstalar):
+
+  ~/.markloto/data/loterias.sqlite
+
+Ejecutar desde el menú de aplicaciones o: markloto

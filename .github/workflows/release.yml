@@ -1,0 +1,184 @@
+# Builds instaladores y publica GitHub Release al etiquetar v* o manualmente.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      skip_seed:
+        description: Omitir generación de base semilla (instaladores sin histórico embebido)
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.12"
+  SEED_CACHE_KEY: seed-v1
+
+jobs:
+  build-seed:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.skip_seed != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Restaurar caché de semilla
+        id: seed-cache
+        uses: actions/cache@v4
+        with:
+          path: data/seed
+          key: ${{ env.SEED_CACHE_KEY }}-${{ hashFiles('loteria_hist/sync_selae.py', 'loteria_hist/parse_selae.py', 'scripts/build_seed_db.py') }}
+
+      - name: Generar base semilla SELAE
+        if: steps.seed-cache.outputs.cache-hit != 'true'
+        run: python scripts/build_seed_db.py
+
+      - name: Comprobar semilla
+        run: |
+          test -f data/seed/loterias.sqlite
+          ls -lh data/seed/
+
+      - name: Subir artefacto semilla
+        uses: actions/upload-artifact@v4
+        with:
+          name: seed-database
+          path: data/seed/
+          retention-days: 14
+          if-no-files-found: error
+
+  build-linux:
+    needs: [build-seed]
+    if: ${{ always() && !cancelled() && (needs.build-seed.result == 'success' || needs.build-seed.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Dependencias del sistema
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            python3 python3-venv python3-dev build-essential \
+            dpkg-dev patchelf libssl-dev
+
+      - name: Descargar semilla
+        if: needs.build-seed.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: seed-database
+          path: data/seed
+
+      - name: Build .deb
+        env:
+          MARKLOTO_SKIP_SEED: ${{ needs.build-seed.result == 'skipped' && '1' || '0' }}
+        run: |
+          chmod +x scripts/build_linux_deb.sh
+          ./scripts/build_linux_deb.sh
+
+      - name: Subir .deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-deb
+          path: dist/installers/linux-*/markloto_*.deb
+          retention-days: 30
+
+  build-windows:
+    needs: [build-seed]
+    if: ${{ always() && !cancelled() && (needs.build-seed.result == 'success' || needs.build-seed.result == 'skipped') }}
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Inno Setup 6
+        run: choco install innosetup -y --no-progress
+
+      - name: Descargar semilla
+        if: needs.build-seed.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: seed-database
+          path: data/seed
+
+      - name: Build instalador Windows
+        env:
+          MARKLOTO_SKIP_SEED: ${{ needs.build-seed.result == 'skipped' && '1' || '0' }}
+        shell: pwsh
+        run: ./scripts/build_windows.ps1
+
+      - name: Subir Setup.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-setup
+          path: dist/installers/windows-x64/Markloto-*-win64-Setup.exe
+          retention-days: 30
+
+  publish:
+    needs: [build-linux, build-windows]
+    if: |
+      startsWith(github.ref, 'refs/tags/v') &&
+      needs.build-linux.result == 'success' &&
+      needs.build-windows.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Versión
+        id: ver
+        run: |
+          V=$(tr -d '\r\n' < VERSION)
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Descargar artefactos
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Preparar assets
+        run: |
+          mkdir -p dist/release
+          find release-assets -name 'markloto_*.deb' -exec cp {} dist/release/ \;
+          find release-assets -name 'Markloto-*-Setup.exe' -exec cp {} dist/release/ \;
+          ls -la dist/release/
+          (cd dist/release && sha256sum * > SHA256SUMS.txt)
+          cat dist/release/SHA256SUMS.txt
+
+      - name: Crear GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: Markloto ${{ steps.ver.outputs.version }}
+          generate_release_notes: true
+          files: |
+            dist/release/*
+          prerelease: ${{ contains(steps.ver.outputs.tag, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

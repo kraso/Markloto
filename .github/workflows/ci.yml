@@ -1,0 +1,53 @@
+# Comprobaciones rápidas en cada push/PR a main.
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-build.txt
+
+      - name: Dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Sintaxis e imports
+        run: |
+          python -m compileall -q app loteria_hist run_gui.py scripts
+          python -c "
+          from loteria_hist.periodos import rango_periodo, ETIQUETAS_PERIODO_UI
+          from loteria_hist.bootstrap_db import texto_historico_embebido
+          from loteria_hist.export_xlsx import columnas_exportacion
+          from datetime import date
+          assert len(ETIQUETAS_PERIODO_UI) >= 6
+          rango_periodo('mes', date.today())
+          print('imports OK')
+          print('euromillones cols:', columnas_exportacion('euromillones'))
+          "
+
+      - name: Versión
+        run: |
+          test -f VERSION
+          grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' VERSION
+          echo "VERSION=$(tr -d '\r\n' < VERSION)"

@@ -1,0 +1,19 @@
+*.sqlite
+*.sqlite-journal
+__pycache__/
+*.pyc
+.venv/
+.venv-build/
+.venv-build-linux/
+
+# Build / instaladores (mantener README en dist/installers)
+dist/installers/**/*
+!dist/installers/**/README.txt
+!dist/installers/**/.gitkeep
+build/
+build/windows-staging/
+dist/Markloto/
+dist/Loterias/
+dist/*.exe
+!dist/installers/**/*.exe
+*.spec.bak

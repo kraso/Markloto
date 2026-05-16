@@ -1,0 +1,9 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Markloto
+Source: <proyecto Markloto>
+
+Files: *
+Copyright: 2026 Marcos Calabrés Ibáñez
+License: Proprietary
+ Los datos de sorteos proceden de fuentes públicas SELAE.
+ La aplicación no está afiliada a SELAE ni garantiza premios.
