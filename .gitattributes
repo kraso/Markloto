@@ -1,6 +1,8 @@
 * text=auto
 
 *.sh text eol=lf
+scripts/** text eol=lf
+packaging/debian/** text eol=lf
 *.bash text eol=lf
 packaging/debian/postinst text eol=lf
 packaging/debian/prerm text eol=lf

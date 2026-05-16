@@ -34,7 +34,8 @@ Al subir la etiqueta `v*`, se ejecuta el workflow **Release**:
 1. Genera (o restaura desde caché) la base semilla SELAE.
 2. Construye `markloto_*_amd64.deb` en Linux.
 3. Construye `Markloto-*-win64-Setup.exe` en Windows.
-4. Publica los archivos y `SHA256SUMS.txt` en **GitHub Releases**.
+4. Construye el APK Android (Flet).
+5. Publica los archivos y `SHA256SUMS.txt` en **GitHub Releases** (incluye `.apk` arm64-v8a recomendado para móviles actuales).
 
 La primera vez, el paso de semilla puede tardar bastante (histórico completo de los tres juegos).
 

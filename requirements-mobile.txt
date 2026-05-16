@@ -1,0 +1,2 @@
+# Cliente Android (Flet). Escritorio: requirements.txt + pip install -e ".[desktop]"
+flet>=0.27.0

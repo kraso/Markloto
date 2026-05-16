@@ -137,12 +137,55 @@ jobs:
           path: dist/installers/windows-x64/Markloto-*-win64-Setup.exe
           retention-days: 30
 
+  build-android:
+    needs: [build-seed]
+    if: ${{ always() && !cancelled() && (needs.build-seed.result == 'success' || needs.build-seed.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Descargar semilla
+        if: needs.build-seed.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: seed-database
+          path: data/seed
+
+      - name: Build APK
+        env:
+          MARKLOTO_SKIP_SEED: ${{ needs.build-seed.result == 'skipped' && '1' || '0' }}
+          MARKLOTO_BUILD_LINK: ${{ github.workspace }}/markloto-build-link
+        run: |
+          chmod +x scripts/build_android_apk.sh scripts/prepare_android_assets.sh
+          ./scripts/build_android_apk.sh
+
+      - name: Subir APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: dist/installers/android/*.apk
+          retention-days: 30
+
   publish:
-    needs: [build-linux, build-windows]
+    needs: [build-linux, build-windows, build-android]
     if: |
       startsWith(github.ref, 'refs/tags/v') &&
       needs.build-linux.result == 'success' &&
-      needs.build-windows.result == 'success'
+      needs.build-windows.result == 'success' &&
+      needs.build-android.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -167,6 +210,7 @@ jobs:
           mkdir -p dist/release
           find release-assets -name 'markloto_*.deb' -exec cp {} dist/release/ \;
           find release-assets -name 'Markloto-*-Setup.exe' -exec cp {} dist/release/ \;
+          find release-assets -name '*.apk' -exec cp {} dist/release/ \;
           ls -la dist/release/
           (cd dist/release && sha256sum * > SHA256SUMS.txt)
           cat dist/release/SHA256SUMS.txt

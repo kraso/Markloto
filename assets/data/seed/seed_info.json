@@ -1,0 +1,10 @@
+{
+  "built_at": "2026-05-16T10:32:16",
+  "fecha_max": "2026-05-15",
+  "juegos": {
+    "euromillones": 1946,
+    "bonoloto": 9264,
+    "primitiva": 4136
+  },
+  "nota": "Histórico SELAE hasta la fecha de generación; la app completa novedades al iniciar."
+}

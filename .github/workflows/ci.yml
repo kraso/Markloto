@@ -34,7 +34,7 @@ jobs:
 
       - name: Sintaxis e imports
         run: |
-          python -m compileall -q app loteria_hist run_gui.py scripts
+          python -m compileall -q app loteria_hist mobile run_gui.py run_mobile.py scripts
           python -c "
           from loteria_hist.periodos import rango_periodo, ETIQUETAS_PERIODO_UI
           from loteria_hist.bootstrap_db import texto_historico_embebido

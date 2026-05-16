@@ -1,0 +1,53 @@
+[project]
+name = "markloto"
+version = "1.0.0"
+description = "Análisis histórico Euromillones, Bonoloto y Primitiva (SELAE)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "Marcos Calabrés Ibáñez", email = "markbiophysicist@gmail.com" }]
+dependencies = [
+    "flet>=0.85.0",
+]
+
+[project.optional-dependencies]
+desktop = [
+    "customtkinter>=5.2.0",
+    "curl_cffi>=0.7.0",
+    "openpyxl>=3.1.0",
+]
+
+[tool.flet]
+org = "es.kraso.markloto"
+product = "Markloto"
+company = "Marcos Calabrés Ibáñez"
+copyright = "Copyright (C) 2026 Marcos Calabrés Ibáñez"
+
+[tool.flet.app]
+path = "."
+module = "run_mobile"
+assets = ["assets", "VERSION"]
+exclude = [
+    ".git",
+    ".github",
+    ".venv",
+    ".venv-build",
+    ".venv-build-linux",
+    ".venv-build-android",
+    "app",
+    "build",
+    "dist",
+    "packaging",
+    "scripts",
+    ".cursor",
+    "__pycache__",
+]
+
+[tool.flet.android]
+permissions = [
+    "android.permission.INTERNET",
+    "android.permission.ACCESS_NETWORK_STATE",
+]
+
+[tool.flet.android.manifest_application]
+usesCleartextTraffic = "true"

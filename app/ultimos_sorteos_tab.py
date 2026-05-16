@@ -3,8 +3,6 @@ from __future__ import annotations
 import sqlite3
 import threading
 from collections.abc import Callable
-from dataclasses import dataclass
-from datetime import date
 from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
@@ -13,12 +11,8 @@ from app import theme as T
 from app.widgets import BallRow, FreqGrid, MetallicPanel
 from loteria_hist import repository
 from loteria_hist.export_xlsx import exportar_sorteos_periodo
-from loteria_hist.periodos import (
-    ETIQUETAS_PERIODO_UI,
-    RangoPeriodo,
-    rango_periodo,
-)
-from loteria_hist.repository import SorteoVista
+from loteria_hist.periodos import ETIQUETAS_PERIODO_UI
+from loteria_hist.ultimos_data import DatosUltimosSorteos, cargar_datos
 
 TIPO_LABEL = {
     "principal": "Números principales",
@@ -26,57 +20,6 @@ TIPO_LABEL = {
     "complementario": "Complementario",
     "reintegro": "Reintegro",
 }
-
-
-@dataclass(frozen=True)
-class DatosUltimosSorteos:
-    ultimo: SorteoVista | None
-    periodo: RangoPeriodo
-    sorteos_periodo: list[SorteoVista]
-    frecuencias: dict[str, list[tuple[int, int]]]
-
-
-def cargar_datos(
-    conn: sqlite3.Connection,
-    juego: str,
-    grupos: list[tuple[str, str]],
-    modo_periodo: str,
-) -> DatosUltimosSorteos:
-    if modo_periodo == "completo":
-        resumen = repository.resumen_juego(conn, juego)
-        if resumen.fecha_min:
-            dmin = date.fromisoformat(resumen.fecha_min)
-            dmax = (
-                date.fromisoformat(resumen.fecha_max)
-                if resumen.fecha_max
-                else date.today()
-            )
-            periodo = rango_periodo(
-                "completo", fecha_min=dmin, fecha_max=dmax
-            )
-        else:
-            periodo = rango_periodo("trimestre")
-    else:
-        periodo = rango_periodo(modo_periodo)
-    ultimo = repository.ultimo_sorteo(conn, juego)
-    sorteos = repository.sorteos_en_rango(
-        conn, juego, periodo.inicio_iso, periodo.fin_iso
-    )
-    freq: dict[str, list[tuple[int, int]]] = {}
-    for tipo, _kind in grupos:
-        freq[tipo] = repository.frecuencias_en_rango(
-            conn,
-            juego,
-            tipo,
-            periodo.inicio_iso,
-            periodo.fin_iso,
-        )
-    return DatosUltimosSorteos(
-        ultimo=ultimo,
-        periodo=periodo,
-        sorteos_periodo=sorteos,
-        frecuencias=freq,
-    )
 
 
 class UltimosSorteosTab(ctk.CTkFrame):
