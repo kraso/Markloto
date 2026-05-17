@@ -8,6 +8,13 @@ Instalar:
 
 Si faltan dependencias del sistema, apt-get install -f las resolverá.
 
+Si dpkg falla en postinst ("No existe el archivo o el directorio"):
+  el .deb se generó con scripts Windows (CRLF). Reconstruye el paquete en
+  Linux/WSL con el build_linux_deb.sh actualizado, o repara:
+    sudo sed -i 's/\r$//' /var/lib/dpkg/info/markloto.postinst
+    sudo sed -i 's/\r$//' /var/lib/dpkg/info/markloto.prerm
+    sudo dpkg --configure markloto
+
 Desinstalar:
 
   sudo apt remove markloto

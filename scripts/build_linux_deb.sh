@@ -41,7 +41,12 @@ esac
 DEB_NAME="markloto_${VERSION}_${DEB_ARCH}.deb"
 OUT_BASE="$ROOT/dist/installers/$OUT_DIR"
 DEB_PATH="$OUT_BASE/$DEB_NAME"
+# En WSL con repo en /mnt/c/ los directorios salen 777 y dpkg-deb falla; usar tmpfs.
 STAGING="$ROOT/build/deb-staging"
+if [[ "$(uname -r 2>/dev/null)" == *microsoft* ]] && [[ "$ROOT" == /mnt/* ]]; then
+  STAGING="/tmp/markloto-deb-staging-$$"
+  echo "AVISO: staging del .deb en $STAGING (evita permisos 777 en /mnt/c)."
+fi
 VENV="$ROOT/.venv-build-linux"
 BUILT="$ROOT/dist/Markloto"
 
@@ -90,8 +95,14 @@ cp -a "$BUILT"/. "$STAGING/usr/share/markloto/"
 chmod -R a+rX "$STAGING/usr/share/markloto"
 chmod +x "$STAGING/usr/share/markloto/Markloto"
 
-cp packaging/debian/markloto.launcher.sh "$STAGING/usr/bin/markloto"
-chmod 755 "$STAGING/usr/bin/markloto"
+# Scripts de mantenimiento y lanzador: siempre LF (CRLF rompe #!/bin/sh en dpkg).
+install_lf() {
+  local src="$1" dst="$2" mode="$3"
+  sed 's/\r$//' "$src" > "$dst"
+  chmod "$mode" "$dst"
+}
+
+install_lf packaging/debian/markloto.launcher.sh "$STAGING/usr/bin/markloto" 755
 
 cp packaging/debian/markloto.desktop "$STAGING/usr/share/applications/markloto.desktop"
 chmod 644 "$STAGING/usr/share/applications/markloto.desktop"
@@ -99,9 +110,14 @@ chmod 644 "$STAGING/usr/share/applications/markloto.desktop"
 cp packaging/debian/copyright "$STAGING/usr/share/doc/markloto/copyright"
 cp packaging/debian/LEEME-instalacion.txt "$STAGING/usr/share/doc/markloto/README.txt"
 
-cp packaging/debian/postinst "$STAGING/DEBIAN/postinst"
-cp packaging/debian/prerm "$STAGING/DEBIAN/prerm"
-chmod 755 "$STAGING/DEBIAN/postinst" "$STAGING/DEBIAN/prerm"
+install_lf packaging/debian/postinst "$STAGING/DEBIAN/postinst" 755
+install_lf packaging/debian/prerm "$STAGING/DEBIAN/prerm" 755
+
+if ! head -1 "$STAGING/DEBIAN/postinst" | grep -q '^#!/bin/sh$'; then
+  echo "ERROR: postinst con shebang inválido (¿CRLF?). Primera línea:" >&2
+  head -1 "$STAGING/DEBIAN/postinst" | od -An -tx1 >&2
+  exit 1
+fi
 
 INSTALLED_KB="$(du -sk "$STAGING/usr" | cut -f1)"
 CONTROL="$STAGING/DEBIAN/control"
@@ -112,6 +128,19 @@ sed -e "s/@VERSION@/$VERSION/g" \
 
 mkdir -p "$OUT_BASE"
 rm -f "$DEB_PATH"
+
+# dpkg-deb exige DEBIAN con permisos 0755–0775 (no 777 en drvfs/WSL).
+fix_deb_permissions() {
+  find "$STAGING" -type d -exec chmod 755 {} \;
+  find "$STAGING" -type f -exec chmod 644 {} \;
+  chmod 755 "$STAGING/DEBIAN"
+  chmod 644 "$CONTROL"
+  chmod 755 "$STAGING/DEBIAN/postinst" "$STAGING/DEBIAN/prerm"
+  chmod 755 "$STAGING/usr/bin/markloto"
+  chmod 755 "$STAGING/usr/share/markloto/Markloto"
+}
+fix_deb_permissions
+
 dpkg-deb --root-owner-group --build "$STAGING" "$DEB_PATH"
 
 rm -rf "$STAGING"

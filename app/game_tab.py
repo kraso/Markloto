@@ -199,8 +199,8 @@ class GameTab(ctk.CTkFrame):
             finally:
                 conn.close()
 
-        if hasattr(self, "validation"):
-            self.validation.load_async()
+        # Validación walk-forward: solo bajo demanda (Recalcular). Evita 3 backtests
+        # completos al arrancar, que bloquean la UI en Linux.
 
         def done(result: tuple[AnalisisJuego, list[repository.SorteoVista]] | Exception) -> None:
             self._loading = False

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import customtkinter as ctk
@@ -8,6 +9,7 @@ from app import metadata as meta
 from app import theme as T
 from app.about_tab import AboutTab
 from app.game_tab import GameTab
+from app.ui_helpers import ThrottledCallback
 from app.ultimos_sorteos_tab import UltimosSorteosTab
 from loteria_hist import analytics
 from loteria_hist.bootstrap_db import ensure_user_database, read_seed_info
@@ -59,6 +61,9 @@ class MainWindow(ctk.CTk):
         self.db_path = Path(db_path or DEFAULT_DB)
         self._sync = SyncCoordinator(self.db_path)
         self._auto_sync_done = False
+        self._loaded_game_keys: set[str] = set()
+        self._ultimos_loaded = False
+        self._status_throttle: ThrottledCallback | None = None
 
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("dark-blue")
@@ -75,8 +80,12 @@ class MainWindow(ctk.CTk):
 
         self._seed_message = self._ensure_db()
         self._build_ui()
+        self._status_throttle = ThrottledCallback(
+            self, self._set_status, interval_ms=450
+        )
         self.after(120, self._initial_load)
-        self.after(400, self._auto_sync_selae)
+        # Sincronización tras pintar la pestaña visible (no compite con la carga inicial).
+        self.after(3000, self._auto_sync_selae)
 
     def _ensure_db(self) -> str | None:
         applied, msg = ensure_user_database(self.db_path)
@@ -149,6 +158,11 @@ class MainWindow(ctk.CTk):
         )
         self.tabs.grid(row=1, column=0, sticky="nsew", padx=12, pady=(0, 8))
         self.tabs._segmented_button.configure(font=T.FONT_HEAD)
+        try:
+            self.tabs.configure(command=self._on_tab_changed)
+        except (TypeError, ValueError, AttributeError):
+            self._watch_tab_name: str | None = None
+            self.after(400, self._poll_tab_change)
 
         self.game_tabs: dict[str, GameTab] = {}
         for cfg in GAME_CONFIG:
@@ -214,15 +228,47 @@ class MainWindow(ctk.CTk):
             self._set_status(
                 f"Base: {self.db_path.name} · histórico hasta {info['fecha_max']}"
             )
-        for tab in self.game_tabs.values():
-            tab.load_async()
-        if hasattr(self, "ultimos_tab"):
-            self.ultimos_tab.load_async()
+        self._load_tab_if_needed(self.tabs.get())
         if hasattr(self, "about_tab"):
             self.about_tab.refresh_db_status()
 
+    def _on_tab_changed(self, *_args) -> None:
+        try:
+            name = self.tabs.get()
+        except Exception:
+            return
+        self._load_tab_if_needed(name)
+
+    def _poll_tab_change(self) -> None:
+        try:
+            name = self.tabs.get()
+        except Exception:
+            self.after(400, self._poll_tab_change)
+            return
+        prev = getattr(self, "_watch_tab_name", None)
+        if name != prev:
+            self._watch_tab_name = name
+            self._load_tab_if_needed(name)
+        self.after(400, self._poll_tab_change)
+
+    def _load_tab_if_needed(self, tab_name: str) -> None:
+        for cfg in GAME_CONFIG:
+            if cfg["tab"] == tab_name and cfg["key"] not in self._loaded_game_keys:
+                self.game_tabs[cfg["key"]].load_async()
+                self._loaded_game_keys.add(cfg["key"])
+                return
+        if tab_name == "Últimos sorteos" and not self._ultimos_loaded:
+            self.ultimos_tab.load_async()
+            self._ultimos_loaded = True
+
     def _auto_sync_selae(self) -> None:
         if self._auto_sync_done:
+            return
+        if os.environ.get("MARKLOTO_AUTO_SYNC", "1").strip().lower() in (
+            "0",
+            "false",
+            "no",
+        ):
             return
         self._auto_sync_done = True
         self._sync_all_async(
@@ -240,9 +286,9 @@ class MainWindow(ctk.CTk):
             self.btn_sync_full.configure(state="normal")
 
     def _reload_after_sync(self) -> None:
-        for tab in self.game_tabs.values():
-            tab.load_async()
-        if hasattr(self, "ultimos_tab"):
+        for key in list(self._loaded_game_keys):
+            self.game_tabs[key].load_async()
+        if self._ultimos_loaded:
             self.ultimos_tab.load_async()
         if hasattr(self, "about_tab"):
             self.about_tab.refresh_db_status()
@@ -268,10 +314,17 @@ class MainWindow(ctk.CTk):
         )
         self._set_status(f"Descargando {etiqueta}…")
 
+        throttle = self._status_throttle
+
         def on_progress(msg: str) -> None:
-            self.after(0, lambda m=msg: self._set_status(m[:120]))
+            if throttle is not None:
+                throttle.push(msg[:120])
+            else:
+                self.after(0, lambda m=msg: self._set_status(m[:120]))
 
         def on_done(result) -> None:
+            if throttle is not None:
+                throttle.flush_now()
             if not self._sync.is_running:
                 self._set_sync_ui_busy(False)
             if isinstance(result, Exception):

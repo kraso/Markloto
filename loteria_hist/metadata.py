@@ -19,4 +19,4 @@ def app_version() -> str:
     path = bundle_root() / "VERSION"
     if path.is_file():
         return path.read_text(encoding="utf-8").strip()
-    return "1.0.0"
+    return "1.0.1"
