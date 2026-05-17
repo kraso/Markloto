@@ -184,9 +184,24 @@ class MultipleBetPanel(ctk.CTkFrame):
                 width=w,
             ).grid(row=0, column=i, padx=4, pady=6, sticky="w")
 
+        tbl_actions = ctk.CTkFrame(panel.body, fg_color="transparent")
+        tbl_actions.grid(row=5, column=0, sticky="ew", pady=(0, 4))
+        self._btn_show_table = ctk.CTkButton(
+            tbl_actions,
+            text="Mostrar tabla de costes y probabilidades",
+            font=T.FONT_SMALL,
+            fg_color=T.BG_ELEVATED,
+            hover_color=T.BORDER_SHINE,
+            border_width=1,
+            border_color=accent,
+            command=self._show_table_clicked,
+        )
+        self._btn_show_table.pack(anchor="w")
+
         self._table_body = ctk.CTkFrame(panel.body, fg_color="transparent")
-        self._table_body.grid(row=5, column=0, sticky="ew")
+        self._table_body.grid(row=6, column=0, sticky="ew")
         self._table_body.grid_columnconfigure(0, weight=1)
+        self._table_body.grid_remove()
 
         ctk.CTkLabel(
             panel.body,
@@ -199,7 +214,7 @@ class MultipleBetPanel(ctk.CTkFrame):
             text_color=T.TEXT_MUTED,
             wraplength=900,
             justify="left",
-        ).grid(row=6, column=0, sticky="w", pady=(8, 0))
+        ).grid(row=7, column=0, sticky="w", pady=(8, 0))
 
         # La tabla se rellena al cargar datos (no al crear las 3 pestañas).
 
@@ -216,12 +231,13 @@ class MultipleBetPanel(ctk.CTkFrame):
         if refresh_table:
             self._on_selection_change()
         else:
-            self._update_combo_recomendada()
+            self._update_combo_recomendada(compact=True)
+            self._update_detail()
 
-    def refresh_table_deferred(self) -> None:
-        """Reconstruye la tabla en el siguiente ciclo UI (tras datos ya visibles)."""
-        if self.winfo_exists():
-            self.after(1, self._on_selection_change)
+    def _show_table_clicked(self) -> None:
+        self._table_body.grid()
+        self._btn_show_table.pack_forget()
+        self._on_selection_change()
 
     def _default_nums(self) -> int:
         if self.juego == "euromillones":
@@ -322,7 +338,7 @@ class MultipleBetPanel(ctk.CTkFrame):
         self._update_detail()
         self._update_combo_recomendada()
 
-    def _update_combo_recomendada(self) -> None:
+    def _update_combo_recomendada(self, *, compact: bool = False) -> None:
         if not self._analisis:
             return
         n = int(self._var_nums.get())
@@ -346,7 +362,8 @@ class MultipleBetPanel(ctk.CTkFrame):
             if vals:
                 groups.append((vals, kind))
 
-        self._combo_row.set_numbers(groups, hot_sets=self._hot)
+        if not compact:
+            self._combo_row.set_numbers(groups, hot_sets=self._hot)
 
         lines: list[str] = []
         if self._reglas.base_estrella:
@@ -355,6 +372,22 @@ class MultipleBetPanel(ctk.CTkFrame):
             )
         else:
             lines.append(f"Bloque seleccionado: {n} números en apuesta múltiple.")
+
+        if compact:
+            partes_combo: list[str] = []
+            for tipo, kind in self._grupos_sorteo:
+                vals = combo.numeros.get(tipo, [])
+                if vals:
+                    tag = TIPO_LABEL.get(tipo, tipo)
+                    fmt = ", ".join(f"{v:02d}" for v in vals)
+                    partes_combo.append(f"{tag}: {fmt}")
+            if partes_combo:
+                lines.append("Combinación sugerida: " + " · ".join(partes_combo))
+            lines.append(
+                "Pulsa «Mostrar tabla de costes…» para ver todas las variantes."
+            )
+            self._lbl_combo_detail.configure(text="\n".join(lines))
+            return
 
         for tipo, dets in combo.detalle.items():
             if not dets:

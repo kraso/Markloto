@@ -1,6 +1,6 @@
 [project]
 name = "markloto"
-version = "1.0.4"
+version = "1.0.5"
 description = "Análisis histórico Euromillones, Bonoloto y Primitiva (SELAE)"
 readme = "README.md"
 requires-python = ">=3.11"

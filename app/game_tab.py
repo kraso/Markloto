@@ -1,16 +1,17 @@
 from __future__ import annotations
 
+import sqlite3
 import threading
 from collections.abc import Callable
+from pathlib import Path
+
 import customtkinter as ctk
 
 from app import theme as T
 from app.bet_calculator import MultipleBetPanel
 from app.user_bet_panel import UserBetPanel
 from app.validation_panel import ValidationPanel
-from app.widgets import BallRow, FreqGrid, MetallicPanel, NumberBall
-from pathlib import Path
-
+from app.widgets import BallRow, FreqGrid, MetallicPanel
 from loteria_hist import analysis_cache, analytics, db, repository
 from loteria_hist.analytics import AnalisisJuego
 
@@ -49,6 +50,8 @@ class GameTab(ctk.CTkFrame):
         self._analisis: AnalisisJuego | None = None
         self._hot: set[int] = set()
         self._loading = False
+        self._apply_gen = 0
+        self.user_bet: UserBetPanel | None = None
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -112,8 +115,8 @@ class GameTab(ctk.CTkFrame):
         scroll.grid(row=1, column=0, sticky="nsew", padx=4, pady=4)
         scroll.grid_columnconfigure(0, weight=1)
         scroll.grid_columnconfigure(1, weight=1)
+        self._scroll = scroll
 
-        # Sugerencia heurística
         sug = MetallicPanel(
             scroll,
             title="Sugerencias — heurística y apuesta múltiple",
@@ -129,13 +132,34 @@ class GameTab(ctk.CTkFrame):
             text_color=T.TEXT_MUTED,
         ).pack(anchor="w")
 
-        self.user_bet = UserBetPanel(
-            scroll,
-            juego=self.juego,
+        self._user_bet_host = ctk.CTkFrame(scroll, fg_color="transparent")
+        self._user_bet_host.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 8))
+        ph = MetallicPanel(
+            self._user_bet_host,
+            title="Tu apuesta — selección y probabilidades",
             accent=self.accent,
-            grupos_sorteo=self._grupos_sorteo,
         )
-        self.user_bet.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 8))
+        ph.pack(fill="x")
+        ctk.CTkLabel(
+            ph.body,
+            text=(
+                "La rejilla de números (cientos de botones) se carga bajo demanda "
+                "para no bloquear la pestaña."
+            ),
+            font=T.FONT_SMALL,
+            text_color=T.TEXT_DIM,
+            wraplength=820,
+            justify="left",
+        ).pack(anchor="w", pady=(0, 8))
+        self._btn_load_user_bet = ctk.CTkButton(
+            ph.body,
+            text="Cargar selector de números",
+            font=T.FONT_SMALL,
+            fg_color=self.accent,
+            text_color=T.BG_DEEP,
+            command=self._mount_user_bet,
+        )
+        self._btn_load_user_bet.pack(anchor="w")
 
         self.bet_calc = MultipleBetPanel(
             scroll,
@@ -154,7 +178,6 @@ class GameTab(ctk.CTkFrame):
         self.validation.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(0, 8))
         self.bet_calc.on_block_change = self._on_block_size_change
 
-        # Frecuencias
         self.freq_frames: dict[str, FreqGrid] = {}
         row_f = 4
         col = 0
@@ -171,22 +194,38 @@ class GameTab(ctk.CTkFrame):
                 col = 0
                 row_f += 1
 
-        # Retrasos
-        delay_panel = MetallicPanel(scroll, title="Mayor retraso (sorteos sin salir)", accent=T.ROSE)
+        delay_panel = MetallicPanel(
+            scroll, title="Mayor retraso (sorteos sin salir)", accent=T.ROSE
+        )
         delay_panel.grid(row=row_f + 1, column=0, columnspan=2, sticky="ew", pady=8)
         self.delay_body = ctk.CTkFrame(delay_panel.body, fg_color="transparent")
         self.delay_body.pack(fill="x")
 
-        # Últimos sorteos
         hist = MetallicPanel(scroll, title="Últimos sorteos", accent=T.SILVER_BRIGHT)
         hist.grid(row=row_f + 2, column=0, columnspan=2, sticky="ew", pady=8)
         self.hist_list = ctk.CTkFrame(hist.body, fg_color="transparent")
         self.hist_list.pack(fill="both", expand=True)
 
+    def _mount_user_bet(self) -> None:
+        if self.user_bet is not None:
+            return
+        for child in self._user_bet_host.winfo_children():
+            child.destroy()
+        self.user_bet = UserBetPanel(
+            self._user_bet_host,
+            juego=self.juego,
+            accent=self.accent,
+            grupos_sorteo=self._grupos_sorteo,
+        )
+        self.user_bet.pack(fill="x")
+        if self._analisis is not None:
+            self.user_bet.set_analisis(self._analisis, self._hot)
+
     def load_async(self, *, force: bool = False) -> None:
         if self._loading:
             return
         self._loading = True
+        self._apply_gen += 1
         self.btn_refresh.configure(state="disabled")
         self.lbl_resumen.configure(text="Cargando datos…")
         self._on_status(f"{self.titulo}: cargando…")
@@ -199,7 +238,7 @@ class GameTab(ctk.CTkFrame):
                 cached = None
             conn = db.connect(self.db_path)
             try:
-                ult = repository.ultimos_sorteos(conn, self.juego, limit=8)
+                ult = repository.ultimos_sorteos(conn, self.juego, limit=6)
                 if cached is not None:
                     return cached, ult
                 a = self._analizar(conn)
@@ -207,9 +246,6 @@ class GameTab(ctk.CTkFrame):
                 return a, ult
             finally:
                 conn.close()
-
-        # Validación walk-forward: solo bajo demanda (Recalcular). Evita 3 backtests
-        # completos al arrancar, que bloquean la UI en Linux.
 
         def done(result: tuple[AnalisisJuego, list[repository.SorteoVista]] | Exception) -> None:
             self._loading = False
@@ -220,7 +256,7 @@ class GameTab(ctk.CTkFrame):
                 return
             analisis, ultimos = result
             self._apply(analisis, ultimos)
-            self._on_status(f"{self.titulo}: listo")
+            self._on_status(f"{self.titulo}: estadísticas listas")
 
         def thread_main() -> None:
             try:
@@ -236,6 +272,7 @@ class GameTab(ctk.CTkFrame):
         analisis: AnalisisJuego,
         ultimos: list[repository.SorteoVista],
     ) -> None:
+        gen = self._apply_gen
         self._analisis = analisis
         r = analisis.resumen
         self.lbl_resumen.configure(
@@ -249,59 +286,52 @@ class GameTab(ctk.CTkFrame):
         self._hot = {n for n, _ in freq_p[:8]}
 
         self._render_sugerencia(analisis.sugerencia, defer_bet_table=True)
+        self.bet_calc.set_analisis(analisis, self._hot, refresh_table=False)
 
-        def fase_frecuencias() -> None:
-            if not self.winfo_exists():
-                return
-            for tipo, fg in self.freq_frames.items():
-                fg.load(analisis.frecuencias.get(tipo, []), top=10)
+        tipos = list(self.freq_frames.keys())
 
-        def fase_paneles() -> None:
-            if not self.winfo_exists():
+        def step_freq(i: int = 0) -> None:
+            if not self.winfo_exists() or gen != self._apply_gen:
                 return
-            self.bet_calc.set_analisis(analisis, self._hot, refresh_table=False)
+            if i < len(tipos):
+                tipo = tipos[i]
+                self.freq_frames[tipo].load(analisis.frecuencias.get(tipo, []), top=8)
+                self.after(30, lambda: step_freq(i + 1))
+            else:
+                self.after(20, step_delays)
 
-        def fase_pesada() -> None:
-            if not self.winfo_exists():
+        def step_delays() -> None:
+            if not self.winfo_exists() or gen != self._apply_gen:
                 return
-            self._render_delays(analisis)
+            self._render_delays_text(analisis)
+            self.after(20, step_hist)
+
+        def step_hist() -> None:
+            if not self.winfo_exists() or gen != self._apply_gen:
+                return
             self._render_historial(ultimos)
-            self.user_bet.set_analisis(analisis, self._hot)
-            self.bet_calc.refresh_table_deferred()
 
-        self.after(1, fase_frecuencias)
-        self.after(40, fase_paneles)
-        self.after(80, fase_pesada)
+        self.after(1, step_freq)
 
-    def _render_delays(self, analisis: AnalisisJuego) -> None:
+    def _render_delays_text(self, analisis: AnalisisJuego) -> None:
         for child in self.delay_body.winfo_children():
             child.destroy()
-        col_frame: ctk.CTkFrame | None = None
-        for i, (tipo, _kind) in enumerate(self._grupos_sorteo):
-            if i % 2 == 0:
-                col_frame = ctk.CTkFrame(self.delay_body, fg_color="transparent")
-                col_frame.pack(fill="x", pady=4)
+        blocks: list[str] = []
+        for tipo, _kind in self._grupos_sorteo:
             retrasos = analisis.retrasos.get(tipo, [])[:6]
-            block = ctk.CTkFrame(col_frame, fg_color=T.BG_PANEL_HI, corner_radius=8)
-            block.pack(side="left", fill="x", expand=True, padx=4)
-            ctk.CTkLabel(
-                block,
-                text=TIPO_LABEL.get(tipo, tipo),
-                font=T.FONT_SMALL,
-                text_color=self.accent,
-            ).pack(anchor="w", padx=8, pady=(6, 2))
-            balls = ctk.CTkFrame(block, fg_color="transparent")
-            balls.pack(anchor="w", padx=8, pady=(0, 8))
-            for num, delay in retrasos:
-                wrap = ctk.CTkFrame(balls, fg_color="transparent")
-                wrap.pack(side="left", padx=2)
-                NumberBall(wrap, num, kind=tipo if tipo != "principal" else "main", hot=True, size=34).pack()
-                ctk.CTkLabel(
-                    wrap,
-                    text=f"{delay}",
-                    font=T.FONT_SMALL,
-                    text_color=T.TEXT_MUTED,
-                ).pack()
+            if not retrasos:
+                continue
+            nums = ", ".join(f"{n:02d} ({d})" for n, d in retrasos)
+            blocks.append(f"{TIPO_LABEL.get(tipo, tipo)}: {nums}")
+        ctk.CTkLabel(
+            self.delay_body,
+            text="\n".join(blocks) if blocks else "Sin datos",
+            font=T.FONT_SMALL,
+            text_color=T.TEXT,
+            justify="left",
+            anchor="w",
+            wraplength=820,
+        ).pack(fill="x", padx=4, pady=4)
 
     def _render_sugerencia(
         self,
@@ -322,7 +352,7 @@ class GameTab(ctk.CTkFrame):
             if str(n) in opts:
                 self.bet_calc._var_nums.set(str(n))
                 if defer_bet_table:
-                    self.bet_calc._update_combo_recomendada()
+                    self.bet_calc._update_combo_recomendada(compact=True)
                 else:
                     self.bet_calc._on_selection_change()
 
@@ -338,7 +368,6 @@ class GameTab(ctk.CTkFrame):
         )
 
     def _render_historial(self, ultimos: list[repository.SorteoVista]) -> None:
-        """Lista compacta (menos widgets = carga mucho más rápida en Linux)."""
         for child in self.hist_list.winfo_children():
             child.destroy()
         for s in ultimos:

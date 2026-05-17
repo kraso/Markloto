@@ -236,33 +236,22 @@ class FreqGrid(ctk.CTkScrollableFrame):
         self._accent = accent
 
     def load(self, freq: list[tuple[int, int]], top: int = 15) -> None:
+        """Vista compacta (1 widget): mucho más rápida que barras + bolas en Linux."""
         for child in self.winfo_children():
             child.destroy()
         if not freq:
             ctk.CTkLabel(self, text="Sin datos", text_color=T.TEXT_DIM).pack()
             return
         max_c = max(c for _, c in freq) or 1
-        top_items = freq[:top]
-        hot = {n for n, _ in top_items[:5]}
-        for i, (num, count) in enumerate(top_items):
-            row = ctk.CTkFrame(self, fg_color="transparent")
-            row.pack(fill="x", pady=1)
-            NumberBall(row, num, hot=num in hot, size=32).pack(side="left", padx=(0, 6))
-            bar_bg = ctk.CTkFrame(row, fg_color=T.BG_DEEP, height=8, corner_radius=4)
-            bar_bg.pack(side="left", fill="x", expand=True, padx=(0, 8))
-            fill_w = max(8, int(120 * count / max_c))
-            bar = ctk.CTkFrame(
-                bar_bg,
-                fg_color=self._accent if num in hot else T.BORDER_GLOW,
-                width=fill_w,
-                height=8,
-                corner_radius=4,
-            )
-            bar.place(x=0, y=0, relheight=1.0)
-            ctk.CTkLabel(
-                row,
-                text=str(count),
-                font=T.FONT_SMALL,
-                text_color=T.TEXT_DIM,
-                width=48,
-            ).pack(side="right")
+        lines: list[str] = []
+        for num, count in freq[:top]:
+            bar_len = max(1, int(12 * count / max_c))
+            lines.append(f"{num:02d}  {'█' * bar_len} {count}")
+        ctk.CTkLabel(
+            self,
+            text="\n".join(lines),
+            font=("Consolas", 11),
+            text_color=T.TEXT,
+            justify="left",
+            anchor="w",
+        ).pack(fill="x", padx=6, pady=4)
