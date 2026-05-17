@@ -15,6 +15,22 @@ block_cipher = None
 
 ctk_datas, ctk_binaries, ctk_hidden = collect_all("customtkinter")
 
+# Tkinter: obligatorio en Linux (CustomTkinter). Sin python3-tk en el host de build
+# el binario falla con ModuleNotFoundError: tkinter.
+_tk_datas: list = []
+_tk_binaries: list = []
+_tk_hidden: list = []
+if not _IS_WIN:
+    try:
+        import tkinter  # noqa: F401
+
+        _tk_datas, _tk_binaries, _tk_hidden = collect_all("tkinter")
+    except ImportError as exc:
+        raise SystemExit(
+            "ERROR: tkinter no disponible. En Debian/Ubuntu instala: "
+            "sudo apt install python3-tk"
+        ) from exc
+
 try:
     curl_datas, curl_binaries, curl_hidden = collect_all("curl_cffi")
 except Exception:
@@ -36,9 +52,9 @@ if _seed_info.is_file():
 datas = [
     (str(ROOT / "loteria_hist" / "schema.sql"), "loteria_hist"),
     (str(ROOT / "VERSION"), "."),
-] + _seed_datas + ctk_datas + curl_datas + xlsx_datas
+] + _seed_datas + ctk_datas + _tk_datas + curl_datas + xlsx_datas
 
-binaries = ctk_binaries + curl_binaries + xlsx_binaries
+binaries = ctk_binaries + _tk_binaries + curl_binaries + xlsx_binaries
 
 hiddenimports = (
     collect_submodules("curl_cffi")
@@ -53,6 +69,7 @@ hiddenimports = (
         "_tkinter",
     ]
     + ctk_hidden
+    + _tk_hidden
     + curl_hidden
     + xlsx_hidden
 )

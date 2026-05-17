@@ -9,7 +9,7 @@
 #   dist/installers/linux-<arch>/markloto-VERSION-<arch>.deb
 #
 # Requisitos (Debian/Ubuntu):
-#   sudo apt install python3 python3-venv python3-dev build-essential \
+#   sudo apt install python3 python3-venv python3-dev python3-tk build-essential \
 #        dpkg-dev patchelf libssl-dev
 
 set -euo pipefail
@@ -60,6 +60,11 @@ fi
 source "$VENV/bin/activate"
 python -m pip install -q --upgrade pip
 python -m pip install -q -r requirements.txt -r requirements-build.txt
+
+if ! python -c "import tkinter" 2>/dev/null; then
+  echo "ERROR: tkinter no disponible. Instala: sudo apt install python3-tk" >&2
+  exit 1
+fi
 
 SEED_DB="$ROOT/data/seed/loterias.sqlite"
 if [[ "${MARKLOTO_SKIP_SEED:-}" == "1" ]]; then

@@ -7,6 +7,13 @@ Instalar:
   sudo apt-get install -f
 
 Si faltan dependencias del sistema, apt-get install -f las resolverá.
+  (incluye python3-tk, necesario para la interfaz gráfica)
+
+Si al ejecutar markloto aparece "No module named 'tkinter'":
+  instala el paquete corregido (v1.0.2 o superior) o, como mínimo:
+    sudo apt install python3-tk
+    sudo apt-get install -f
+  Si sigue fallando, el .deb se generó sin tkinter: reinstala desde GitHub Releases.
 
 Si dpkg falla en postinst ("No existe el archivo o el directorio"):
   el .deb se generó con scripts Windows (CRLF). Reconstruye el paquete en
