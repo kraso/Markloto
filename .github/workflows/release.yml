@@ -210,7 +210,18 @@ jobs:
           mkdir -p dist/release
           find release-assets -name 'markloto_*.deb' -exec cp {} dist/release/ \;
           find release-assets -name 'Markloto-*-Setup.exe' -exec cp {} dist/release/ \;
-          find release-assets -name '*.apk' -exec cp {} dist/release/ \;
+          # GitHub limita assets a 2 GiB; Flet puede generar APKs enormes por arquitectura.
+          MAX_BYTES=2147483647
+          while IFS= read -r apk; do
+            sz=$(stat -c%s "$apk")
+            base=$(basename "$apk")
+            if [ "$sz" -lt "$MAX_BYTES" ]; then
+              cp "$apk" "dist/release/$base"
+              echo "APK incluido: $base ($sz bytes)"
+            else
+              echo "APK omitido (>${MAX_BYTES} B): $base ($sz bytes)"
+            fi
+          done < <(find release-assets -name '*.apk' -type f | sort)
           ls -la dist/release/
           (cd dist/release && sha256sum * > SHA256SUMS.txt)
           cat dist/release/SHA256SUMS.txt
@@ -221,8 +232,10 @@ jobs:
           tag_name: ${{ steps.ver.outputs.tag }}
           name: Markloto ${{ steps.ver.outputs.version }}
           generate_release_notes: true
+          draft: false
           files: |
             dist/release/*
+          fail_on_unmatched_files: false
           prerelease: ${{ contains(steps.ver.outputs.tag, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

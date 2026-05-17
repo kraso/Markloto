@@ -16,6 +16,10 @@ def connect(db_path: Path | str, *, timeout: float = 30.0) -> sqlite3.Connection
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA busy_timeout = 30000")
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_numeros_tipo_valor "
+        "ON numeros_sorteo (tipo, valor)"
+    )
     return conn
 
 

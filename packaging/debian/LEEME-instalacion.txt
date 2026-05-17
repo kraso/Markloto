@@ -1,13 +1,17 @@
 Markloto — instalación en Linux (paquete .deb)
 ==============================================
 
-Instalar:
+Instalar (los dos pasos son obligatorios):
 
   sudo dpkg -i markloto-VERSION-ARCH.deb
   sudo apt-get install -f
 
-Si faltan dependencias del sistema, apt-get install -f las resolverá.
-  (incluye python3-tk, necesario para la interfaz gráfica)
+El segundo comando instala python3-tk y demás dependencias que dpkg no
+resuelve solo. Si omites apt-get install -f verás errores de dependencias.
+
+Alternativa en un solo paso:
+
+  sudo apt install ./markloto-VERSION-ARCH.deb
 
 Si al ejecutar markloto aparece "No module named 'tkinter'":
   instala el paquete corregido (v1.0.2 o superior) o, como mínimo:

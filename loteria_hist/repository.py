@@ -216,6 +216,52 @@ def sorteos_ordenados_asc(
     return _sorteos_por_ids(conn, ids)
 
 
+def fechas_indice(conn: sqlite3.Connection, juego: str) -> tuple[int, dict[str, int]]:
+    """Número de sorteos e índice 0..n-1 por fecha (orden ascendente)."""
+    rows = conn.execute(
+        "SELECT fecha FROM sorteos WHERE juego = ? ORDER BY fecha ASC",
+        (juego,),
+    ).fetchall()
+    fechas = [str(r[0]) for r in rows]
+    return len(fechas), {f: i for i, f in enumerate(fechas)}
+
+
+def retrasos_por_tipo(
+    conn: sqlite3.Connection,
+    juego: str,
+    tipo: str,
+    rango: range,
+    *,
+    fecha_idx: dict[str, int] | None = None,
+    total: int | None = None,
+) -> list[tuple[int, int]]:
+    """(número, sorteos sin salir). Mucho más rápido que cargar todo el historial."""
+    if fecha_idx is None or total is None:
+        total, fecha_idx = fechas_indice(conn, juego)
+    if total == 0:
+        return [(n, 0) for n in rango]
+    rows = conn.execute(
+        """
+        SELECT ns.valor, MAX(s.fecha) AS ultima
+        FROM numeros_sorteo ns
+        INNER JOIN sorteos s ON s.id = ns.sorteo_id
+        WHERE s.juego = ? AND ns.tipo = ?
+        GROUP BY ns.valor
+        """,
+        (juego, tipo),
+    ).fetchall()
+    ultima_por_valor = {int(r[0]): str(r[1]) for r in rows}
+    out: list[tuple[int, int]] = []
+    for n in rango:
+        ultima = ultima_por_valor.get(n)
+        if ultima is None:
+            out.append((n, total))
+        else:
+            out.append((n, total - 1 - fecha_idx[ultima]))
+    out.sort(key=lambda x: (-x[1], x[0]))
+    return out
+
+
 def valores_por_tipo(
     conn: sqlite3.Connection,
     juego: str,

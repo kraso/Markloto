@@ -73,15 +73,19 @@ def _sugerir_desde_frecuencia(
 def analizar_euromillones(conn: sqlite3.Connection) -> AnalisisJuego:
     juego = "euromillones"
     resumen = repository.resumen_juego(conn, juego)
+    total, fecha_idx = repository.fechas_indice(conn, juego)
     freq_p = repository.frecuencias(conn, juego, "principal")
     freq_e = repository.frecuencias(conn, juego, "estrella")
-    hist_p = repository.valores_por_tipo(conn, juego, "principal")
-    hist_e = repository.valores_por_tipo(conn, juego, "estrella")
+    kw = {"fecha_idx": fecha_idx, "total": total}
     return AnalisisJuego(
         frecuencias={"principal": freq_p, "estrella": freq_e},
         retrasos={
-            "principal": _retrasos_desde_historial(hist_p, range(1, 51)),
-            "estrella": _retrasos_desde_historial(hist_e, range(1, 13)),
+            "principal": repository.retrasos_por_tipo(
+                conn, juego, "principal", range(1, 51), **kw
+            ),
+            "estrella": repository.retrasos_por_tipo(
+                conn, juego, "estrella", range(1, 13), **kw
+            ),
         },
         sugerencia={
             "principal": _sugerir_desde_frecuencia(freq_p, 5, 50),
@@ -94,12 +98,11 @@ def analizar_euromillones(conn: sqlite3.Connection) -> AnalisisJuego:
 def analizar_bonoloto(conn: sqlite3.Connection) -> AnalisisJuego:
     juego = "bonoloto"
     resumen = repository.resumen_juego(conn, juego)
+    total, fecha_idx = repository.fechas_indice(conn, juego)
     freq_p = repository.frecuencias(conn, juego, "principal")
     freq_c = repository.frecuencias(conn, juego, "complementario")
     freq_r = repository.frecuencias(conn, juego, "reintegro")
-    hist_p = repository.valores_por_tipo(conn, juego, "principal")
-    hist_c = repository.valores_por_tipo(conn, juego, "complementario")
-    hist_r = repository.valores_por_tipo(conn, juego, "reintegro")
+    kw = {"fecha_idx": fecha_idx, "total": total}
     return AnalisisJuego(
         frecuencias={
             "principal": freq_p,
@@ -107,9 +110,15 @@ def analizar_bonoloto(conn: sqlite3.Connection) -> AnalisisJuego:
             "reintegro": freq_r,
         },
         retrasos={
-            "principal": _retrasos_desde_historial(hist_p, range(1, 50)),
-            "complementario": _retrasos_desde_historial(hist_c, range(1, 50)),
-            "reintegro": _retrasos_desde_historial(hist_r, range(0, 10)),
+            "principal": repository.retrasos_por_tipo(
+                conn, juego, "principal", range(1, 50), **kw
+            ),
+            "complementario": repository.retrasos_por_tipo(
+                conn, juego, "complementario", range(1, 50), **kw
+            ),
+            "reintegro": repository.retrasos_por_tipo(
+                conn, juego, "reintegro", range(0, 10), **kw
+            ),
         },
         sugerencia={
             "principal": _sugerir_desde_frecuencia(freq_p, 6, 49),
@@ -123,12 +132,11 @@ def analizar_bonoloto(conn: sqlite3.Connection) -> AnalisisJuego:
 def analizar_primitiva(conn: sqlite3.Connection) -> AnalisisJuego:
     juego = "primitiva"
     resumen = repository.resumen_juego(conn, juego)
+    total, fecha_idx = repository.fechas_indice(conn, juego)
     freq_p = repository.frecuencias(conn, juego, "principal")
     freq_c = repository.frecuencias(conn, juego, "complementario")
     freq_r = repository.frecuencias(conn, juego, "reintegro")
-    hist_p = repository.valores_por_tipo(conn, juego, "principal")
-    hist_c = repository.valores_por_tipo(conn, juego, "complementario")
-    hist_r = repository.valores_por_tipo(conn, juego, "reintegro")
+    kw = {"fecha_idx": fecha_idx, "total": total}
     return AnalisisJuego(
         frecuencias={
             "principal": freq_p,
@@ -136,9 +144,15 @@ def analizar_primitiva(conn: sqlite3.Connection) -> AnalisisJuego:
             "reintegro": freq_r,
         },
         retrasos={
-            "principal": _retrasos_desde_historial(hist_p, range(1, 50)),
-            "complementario": _retrasos_desde_historial(hist_c, range(1, 50)),
-            "reintegro": _retrasos_desde_historial(hist_r, range(0, 10)),
+            "principal": repository.retrasos_por_tipo(
+                conn, juego, "principal", range(1, 50), **kw
+            ),
+            "complementario": repository.retrasos_por_tipo(
+                conn, juego, "complementario", range(1, 50), **kw
+            ),
+            "reintegro": repository.retrasos_por_tipo(
+                conn, juego, "reintegro", range(0, 10), **kw
+            ),
         },
         sugerencia={
             "principal": _sugerir_desde_frecuencia(freq_p, 6, 49),

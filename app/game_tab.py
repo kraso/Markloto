@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sqlite3
 import threading
 from collections.abc import Callable
 import customtkinter as ctk
@@ -10,7 +9,7 @@ from app.bet_calculator import MultipleBetPanel
 from app.user_bet_panel import UserBetPanel
 from app.validation_panel import ValidationPanel
 from app.widgets import BallRow, FreqGrid, MetallicPanel, NumberBall
-from loteria_hist import analytics, repository
+from loteria_hist import analytics, db, repository
 from loteria_hist.analytics import AnalisisJuego
 
 TIPO_LABEL = {
@@ -191,10 +190,10 @@ class GameTab(ctk.CTkFrame):
         self._on_status(f"{self.titulo}: cargando…")
 
         def work() -> tuple[AnalisisJuego, list[repository.SorteoVista]]:
-            conn = sqlite3.connect(self.db_path)
+            conn = db.connect(self.db_path)
             try:
                 a = self._analizar(conn)
-                ult = repository.ultimos_sorteos(conn, self.juego, limit=20)
+                ult = repository.ultimos_sorteos(conn, self.juego, limit=12)
                 return a, ult
             finally:
                 conn.close()
@@ -242,11 +241,18 @@ class GameTab(ctk.CTkFrame):
         for tipo, fg in self.freq_frames.items():
             fg.load(analisis.frecuencias.get(tipo, []))
 
-        self._render_delays(analisis)
-        self._render_sugerencia(analisis.sugerencia)
-        self.bet_calc.set_analisis(analisis, self._hot)
+        self._render_sugerencia(analisis.sugerencia, defer_bet_table=True)
         self.user_bet.set_analisis(analisis, self._hot)
-        self._render_historial(ultimos)
+        self.bet_calc.set_analisis(analisis, self._hot, refresh_table=False)
+
+        def fase_pesada() -> None:
+            if not self.winfo_exists():
+                return
+            self._render_delays(analisis)
+            self._render_historial(ultimos)
+            self.bet_calc.refresh_table_deferred()
+
+        self.after(1, fase_pesada)
 
     def _render_delays(self, analisis: AnalisisJuego) -> None:
         for child in self.delay_body.winfo_children():
@@ -278,7 +284,12 @@ class GameTab(ctk.CTkFrame):
                     text_color=T.TEXT_MUTED,
                 ).pack()
 
-    def _render_sugerencia(self, sug: dict[str, list[int]]) -> None:
+    def _render_sugerencia(
+        self,
+        sug: dict[str, list[int]],
+        *,
+        defer_bet_table: bool = False,
+    ) -> None:
         groups: list[tuple[list[int], str]] = []
         for tipo, kind in self._grupos_sorteo:
             vals = sug.get(tipo, [])
@@ -291,7 +302,10 @@ class GameTab(ctk.CTkFrame):
             opts = self.bet_calc._spin_nums.cget("values")
             if str(n) in opts:
                 self.bet_calc._var_nums.set(str(n))
-                self.bet_calc._on_selection_change()
+                if defer_bet_table:
+                    self.bet_calc._update_combo_recomendada()
+                else:
+                    self.bet_calc._on_selection_change()
 
     def _nueva_sugerencia(self) -> None:
         if not self._analisis:

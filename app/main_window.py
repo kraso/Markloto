@@ -84,8 +84,8 @@ class MainWindow(ctk.CTk):
             self, self._set_status, interval_ms=450
         )
         self.after(120, self._initial_load)
-        # Sincronización tras pintar la pestaña visible (no compite con la carga inicial).
-        self.after(3000, self._auto_sync_selae)
+        # Sincronización tras la primera carga (no compite con analizar la pestaña).
+        self.after(8000, self._auto_sync_selae)
 
     def _ensure_db(self) -> str | None:
         applied, msg = ensure_user_database(self.db_path)

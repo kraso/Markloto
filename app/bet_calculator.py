@@ -201,13 +201,27 @@ class MultipleBetPanel(ctk.CTkFrame):
             justify="left",
         ).grid(row=6, column=0, sticky="w", pady=(8, 0))
 
-        self.refresh_table()
+        # La tabla se rellena al cargar datos (no al crear las 3 pestañas).
 
-    def set_analisis(self, analisis: AnalisisJuego | None, hot: set[int] | None = None) -> None:
+    def set_analisis(
+        self,
+        analisis: AnalisisJuego | None,
+        hot: set[int] | None = None,
+        *,
+        refresh_table: bool = True,
+    ) -> None:
         self._analisis = analisis
         if hot is not None:
             self._hot = hot
-        self._update_combo_recomendada()
+        if refresh_table:
+            self._on_selection_change()
+        else:
+            self._update_combo_recomendada()
+
+    def refresh_table_deferred(self) -> None:
+        """Reconstruye la tabla en el siguiente ciclo UI (tras datos ya visibles)."""
+        if self.winfo_exists():
+            self.after(1, self._on_selection_change)
 
     def _default_nums(self) -> int:
         if self.juego == "euromillones":
