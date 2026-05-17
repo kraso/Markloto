@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from loteria_hist.db import connect, init_schema  # noqa: E402
+from loteria_hist.db import connect, ensure_performance_indexes, init_schema  # noqa: E402
 from loteria_hist.repository import resumen_juego  # noqa: E402
 from loteria_hist.sync_selae import sincronizar_selae_retraso  # noqa: E402
 
@@ -38,6 +38,8 @@ def main() -> None:
 
     conn = connect(SEED_DB)
     init_schema(conn)
+    ensure_performance_indexes(conn)
+    conn.commit()
     fin = date.today()
     totals: dict[str, int] = {}
 

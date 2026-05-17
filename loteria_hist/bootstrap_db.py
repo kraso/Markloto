@@ -7,7 +7,7 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-from .db import connect, init_schema
+from .db import connect, ensure_performance_indexes, init_schema
 from .paths import bundled_seed_db_path, seed_info_path
 
 
@@ -103,6 +103,8 @@ def ensure_user_database(db_path: Path | str) -> tuple[bool, str | None]:
         conn = connect(db_path)
         try:
             init_schema(conn)
+            ensure_performance_indexes(conn)
+            conn.commit()
         finally:
             conn.close()
         return False, None
@@ -113,6 +115,8 @@ def ensure_user_database(db_path: Path | str) -> tuple[bool, str | None]:
             n = _sorteo_count(conn)
         except sqlite3.OperationalError:
             init_schema(conn)
+            ensure_performance_indexes(conn)
+            conn.commit()
             n = _sorteo_count(conn)
 
         if n == 0 and seed_path.is_file():
