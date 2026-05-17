@@ -226,6 +226,67 @@ def fechas_indice(conn: sqlite3.Connection, juego: str) -> tuple[int, dict[str, 
     return len(fechas), {f: i for i, f in enumerate(fechas)}
 
 
+def frecuencias_por_juego(
+    conn: sqlite3.Connection,
+    juego: str,
+) -> dict[str, list[tuple[int, int]]]:
+    """Todas las frecuencias del juego en una sola consulta."""
+    rows = conn.execute(
+        """
+        SELECT ns.tipo, ns.valor, COUNT(*) AS n
+        FROM numeros_sorteo ns
+        INNER JOIN sorteos s ON s.id = ns.sorteo_id
+        WHERE s.juego = ?
+        GROUP BY ns.tipo, ns.valor
+        ORDER BY ns.tipo, n DESC, ns.valor ASC
+        """,
+        (juego,),
+    ).fetchall()
+    out: dict[str, list[tuple[int, int]]] = {}
+    for tipo, valor, n in rows:
+        out.setdefault(str(tipo), []).append((int(valor), int(n)))
+    return out
+
+
+def ultima_fecha_por_valor(
+    conn: sqlite3.Connection,
+    juego: str,
+) -> dict[str, dict[int, str]]:
+    rows = conn.execute(
+        """
+        SELECT ns.tipo, ns.valor, MAX(s.fecha) AS ultima
+        FROM numeros_sorteo ns
+        INNER JOIN sorteos s ON s.id = ns.sorteo_id
+        WHERE s.juego = ?
+        GROUP BY ns.tipo, ns.valor
+        """,
+        (juego,),
+    ).fetchall()
+    out: dict[str, dict[int, str]] = {}
+    for tipo, valor, ultima in rows:
+        out.setdefault(str(tipo), {})[int(valor)] = str(ultima)
+    return out
+
+
+def retrasos_desde_ultimas(
+    ultima_por_valor: dict[int, str],
+    rango: range,
+    total: int,
+    fecha_idx: dict[str, int],
+) -> list[tuple[int, int]]:
+    if total == 0:
+        return [(n, 0) for n in rango]
+    out: list[tuple[int, int]] = []
+    for n in rango:
+        ultima = ultima_por_valor.get(n)
+        if ultima is None:
+            out.append((n, total))
+        else:
+            out.append((n, total - 1 - fecha_idx[ultima]))
+    out.sort(key=lambda x: (-x[1], x[0]))
+    return out
+
+
 def retrasos_por_tipo(
     conn: sqlite3.Connection,
     juego: str,
@@ -240,26 +301,8 @@ def retrasos_por_tipo(
         total, fecha_idx = fechas_indice(conn, juego)
     if total == 0:
         return [(n, 0) for n in rango]
-    rows = conn.execute(
-        """
-        SELECT ns.valor, MAX(s.fecha) AS ultima
-        FROM numeros_sorteo ns
-        INNER JOIN sorteos s ON s.id = ns.sorteo_id
-        WHERE s.juego = ? AND ns.tipo = ?
-        GROUP BY ns.valor
-        """,
-        (juego, tipo),
-    ).fetchall()
-    ultima_por_valor = {int(r[0]): str(r[1]) for r in rows}
-    out: list[tuple[int, int]] = []
-    for n in rango:
-        ultima = ultima_por_valor.get(n)
-        if ultima is None:
-            out.append((n, total))
-        else:
-            out.append((n, total - 1 - fecha_idx[ultima]))
-    out.sort(key=lambda x: (-x[1], x[0]))
-    return out
+    ultimas = ultima_fecha_por_valor(conn, juego).get(tipo, {})
+    return retrasos_desde_ultimas(ultimas, rango, total, fecha_idx)
 
 
 def valores_por_tipo(

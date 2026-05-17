@@ -70,97 +70,58 @@ def _sugerir_desde_frecuencia(
     return sorted(elegidos)
 
 
-def analizar_euromillones(conn: sqlite3.Connection) -> AnalisisJuego:
-    juego = "euromillones"
+# tipo -> (rango_retraso, cantidad_sugerencia, pool_max)
+_TIPOS_JUEGO: dict[str, dict[str, tuple[range, int, int]]] = {
+    "euromillones": {
+        "principal": (range(1, 51), 5, 50),
+        "estrella": (range(1, 13), 2, 12),
+    },
+    "bonoloto": {
+        "principal": (range(1, 50), 6, 49),
+        "complementario": (range(1, 50), 1, 49),
+        "reintegro": (range(0, 10), 1, 9),
+    },
+    "primitiva": {
+        "principal": (range(1, 50), 6, 49),
+        "complementario": (range(1, 50), 1, 49),
+        "reintegro": (range(0, 10), 1, 9),
+    },
+}
+
+
+def analizar_juego(conn: sqlite3.Connection, juego: str) -> AnalisisJuego:
+    """Análisis completo con pocas consultas SQL (frecuencias + últimas fechas)."""
+    tipos = _TIPOS_JUEGO[juego]
     resumen = repository.resumen_juego(conn, juego)
     total, fecha_idx = repository.fechas_indice(conn, juego)
-    freq_p = repository.frecuencias(conn, juego, "principal")
-    freq_e = repository.frecuencias(conn, juego, "estrella")
-    kw = {"fecha_idx": fecha_idx, "total": total}
+    frecuencias = repository.frecuencias_por_juego(conn, juego)
+    ultimas = repository.ultima_fecha_por_valor(conn, juego)
+    retrasos: dict[str, list[tuple[int, int]]] = {}
+    sugerencia: dict[str, list[int]] = {}
+    for tipo, (rango, cant, pool) in tipos.items():
+        freq = frecuencias.get(tipo, [])
+        retrasos[tipo] = repository.retrasos_desde_ultimas(
+            ultimas.get(tipo, {}), rango, total, fecha_idx
+        )
+        sugerencia[tipo] = _sugerir_desde_frecuencia(freq, cant, pool)
     return AnalisisJuego(
-        frecuencias={"principal": freq_p, "estrella": freq_e},
-        retrasos={
-            "principal": repository.retrasos_por_tipo(
-                conn, juego, "principal", range(1, 51), **kw
-            ),
-            "estrella": repository.retrasos_por_tipo(
-                conn, juego, "estrella", range(1, 13), **kw
-            ),
-        },
-        sugerencia={
-            "principal": _sugerir_desde_frecuencia(freq_p, 5, 50),
-            "estrella": _sugerir_desde_frecuencia(freq_e, 2, 12),
-        },
+        frecuencias=frecuencias,
+        retrasos=retrasos,
+        sugerencia=sugerencia,
         resumen=resumen,
     )
+
+
+def analizar_euromillones(conn: sqlite3.Connection) -> AnalisisJuego:
+    return analizar_juego(conn, "euromillones")
 
 
 def analizar_bonoloto(conn: sqlite3.Connection) -> AnalisisJuego:
-    juego = "bonoloto"
-    resumen = repository.resumen_juego(conn, juego)
-    total, fecha_idx = repository.fechas_indice(conn, juego)
-    freq_p = repository.frecuencias(conn, juego, "principal")
-    freq_c = repository.frecuencias(conn, juego, "complementario")
-    freq_r = repository.frecuencias(conn, juego, "reintegro")
-    kw = {"fecha_idx": fecha_idx, "total": total}
-    return AnalisisJuego(
-        frecuencias={
-            "principal": freq_p,
-            "complementario": freq_c,
-            "reintegro": freq_r,
-        },
-        retrasos={
-            "principal": repository.retrasos_por_tipo(
-                conn, juego, "principal", range(1, 50), **kw
-            ),
-            "complementario": repository.retrasos_por_tipo(
-                conn, juego, "complementario", range(1, 50), **kw
-            ),
-            "reintegro": repository.retrasos_por_tipo(
-                conn, juego, "reintegro", range(0, 10), **kw
-            ),
-        },
-        sugerencia={
-            "principal": _sugerir_desde_frecuencia(freq_p, 6, 49),
-            "complementario": _sugerir_desde_frecuencia(freq_c, 1, 49),
-            "reintegro": _sugerir_desde_frecuencia(freq_r, 1, 9),
-        },
-        resumen=resumen,
-    )
+    return analizar_juego(conn, "bonoloto")
 
 
 def analizar_primitiva(conn: sqlite3.Connection) -> AnalisisJuego:
-    juego = "primitiva"
-    resumen = repository.resumen_juego(conn, juego)
-    total, fecha_idx = repository.fechas_indice(conn, juego)
-    freq_p = repository.frecuencias(conn, juego, "principal")
-    freq_c = repository.frecuencias(conn, juego, "complementario")
-    freq_r = repository.frecuencias(conn, juego, "reintegro")
-    kw = {"fecha_idx": fecha_idx, "total": total}
-    return AnalisisJuego(
-        frecuencias={
-            "principal": freq_p,
-            "complementario": freq_c,
-            "reintegro": freq_r,
-        },
-        retrasos={
-            "principal": repository.retrasos_por_tipo(
-                conn, juego, "principal", range(1, 50), **kw
-            ),
-            "complementario": repository.retrasos_por_tipo(
-                conn, juego, "complementario", range(1, 50), **kw
-            ),
-            "reintegro": repository.retrasos_por_tipo(
-                conn, juego, "reintegro", range(0, 10), **kw
-            ),
-        },
-        sugerencia={
-            "principal": _sugerir_desde_frecuencia(freq_p, 6, 49),
-            "complementario": _sugerir_desde_frecuencia(freq_c, 1, 49),
-            "reintegro": _sugerir_desde_frecuencia(freq_r, 1, 9),
-        },
-        resumen=resumen,
-    )
+    return analizar_juego(conn, "primitiva")
 
 
 ANALIZADORES = {

@@ -16,6 +16,12 @@ def connect(db_path: Path | str, *, timeout: float = 30.0) -> sqlite3.Connection
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA busy_timeout = 30000")
+    conn.execute("PRAGMA cache_size=-80000")
+    conn.execute("PRAGMA temp_store=MEMORY")
+    try:
+        conn.execute("PRAGMA mmap_size=268435456")
+    except sqlite3.OperationalError:
+        pass
     return conn
 
 

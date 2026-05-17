@@ -9,7 +9,9 @@ from app.bet_calculator import MultipleBetPanel
 from app.user_bet_panel import UserBetPanel
 from app.validation_panel import ValidationPanel
 from app.widgets import BallRow, FreqGrid, MetallicPanel, NumberBall
-from loteria_hist import analytics, db, repository
+from pathlib import Path
+
+from loteria_hist import analysis_cache, analytics, db, repository
 from loteria_hist.analytics import AnalisisJuego
 
 TIPO_LABEL = {
@@ -84,7 +86,7 @@ class GameTab(ctk.CTkFrame):
             hover_color=T.BORDER_SHINE,
             border_width=1,
             border_color=self.accent,
-            command=self.load_async,
+            command=lambda: self.load_async(force=True),
         )
         self.btn_refresh.pack(side="left", padx=4)
 
@@ -181,7 +183,7 @@ class GameTab(ctk.CTkFrame):
         self.hist_list = ctk.CTkFrame(hist.body, fg_color="transparent")
         self.hist_list.pack(fill="both", expand=True)
 
-    def load_async(self) -> None:
+    def load_async(self, *, force: bool = False) -> None:
         if self._loading:
             return
         self._loading = True
@@ -190,10 +192,18 @@ class GameTab(ctk.CTkFrame):
         self._on_status(f"{self.titulo}: cargando…")
 
         def work() -> tuple[AnalisisJuego, list[repository.SorteoVista]]:
+            db_path = Path(self.db_path)
+            if not force:
+                cached = analysis_cache.load(db_path, self.juego)
+            else:
+                cached = None
             conn = db.connect(self.db_path)
             try:
+                ult = repository.ultimos_sorteos(conn, self.juego, limit=8)
+                if cached is not None:
+                    return cached, ult
                 a = self._analizar(conn)
-                ult = repository.ultimos_sorteos(conn, self.juego, limit=12)
+                analysis_cache.save(db_path, self.juego, a)
                 return a, ult
             finally:
                 conn.close()
@@ -238,21 +248,30 @@ class GameTab(ctk.CTkFrame):
         freq_p = analisis.frecuencias.get("principal", [])
         self._hot = {n for n, _ in freq_p[:8]}
 
-        for tipo, fg in self.freq_frames.items():
-            fg.load(analisis.frecuencias.get(tipo, []))
-
         self._render_sugerencia(analisis.sugerencia, defer_bet_table=True)
-        self.user_bet.set_analisis(analisis, self._hot)
-        self.bet_calc.set_analisis(analisis, self._hot, refresh_table=False)
+
+        def fase_frecuencias() -> None:
+            if not self.winfo_exists():
+                return
+            for tipo, fg in self.freq_frames.items():
+                fg.load(analisis.frecuencias.get(tipo, []), top=10)
+
+        def fase_paneles() -> None:
+            if not self.winfo_exists():
+                return
+            self.bet_calc.set_analisis(analisis, self._hot, refresh_table=False)
 
         def fase_pesada() -> None:
             if not self.winfo_exists():
                 return
             self._render_delays(analisis)
             self._render_historial(ultimos)
+            self.user_bet.set_analisis(analisis, self._hot)
             self.bet_calc.refresh_table_deferred()
 
-        self.after(1, fase_pesada)
+        self.after(1, fase_frecuencias)
+        self.after(40, fase_paneles)
+        self.after(80, fase_pesada)
 
     def _render_delays(self, analisis: AnalisisJuego) -> None:
         for child in self.delay_body.winfo_children():
@@ -319,39 +338,29 @@ class GameTab(ctk.CTkFrame):
         )
 
     def _render_historial(self, ultimos: list[repository.SorteoVista]) -> None:
+        """Lista compacta (menos widgets = carga mucho más rápida en Linux)."""
         for child in self.hist_list.winfo_children():
             child.destroy()
         for s in ultimos:
-            row = ctk.CTkFrame(
-                self.hist_list,
-                fg_color=T.BG_PANEL_HI,
-                corner_radius=8,
-                border_width=1,
-                border_color=T.BORDER,
-            )
-            row.pack(fill="x", pady=3)
-            left = ctk.CTkFrame(row, fg_color="transparent", width=110)
-            left.pack(side="left", padx=10, pady=8)
-            left.pack_propagate(False)
-            ctk.CTkLabel(
-                left,
-                text=s.fecha,
-                font=T.FONT_BODY,
-                text_color=T.TEXT,
-            ).pack(anchor="w")
-            if s.dia_semana:
-                ctk.CTkLabel(
-                    left,
-                    text=s.dia_semana,
-                    font=T.FONT_SMALL,
-                    text_color=T.TEXT_DIM,
-                ).pack(anchor="w")
-
-            groups: list[tuple[list[int], str]] = []
-            for tipo, kind in self._grupos_sorteo:
+            nums_txt: list[str] = []
+            for tipo, _kind in self._grupos_sorteo:
                 vals = s.numeros.get(tipo, [])
                 if vals:
-                    groups.append((vals, kind))
-            br = BallRow(row)
-            br.pack(side="left", padx=4, pady=8)
-            br.set_numbers(groups, hot_sets=self._hot)
+                    label = TIPO_LABEL.get(tipo, tipo)[:4]
+                    nums_txt.append(
+                        f"{label}: " + ", ".join(f"{v:02d}" for v in vals)
+                    )
+            line = f"{s.fecha}"
+            if s.dia_semana:
+                line += f" ({s.dia_semana})"
+            if nums_txt:
+                line += " — " + " · ".join(nums_txt)
+            ctk.CTkLabel(
+                self.hist_list,
+                text=line,
+                font=T.FONT_SMALL,
+                text_color=T.TEXT,
+                anchor="w",
+                justify="left",
+                wraplength=820,
+            ).pack(fill="x", padx=4, pady=2)

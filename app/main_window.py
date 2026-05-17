@@ -11,7 +11,7 @@ from app.about_tab import AboutTab
 from app.game_tab import GameTab
 from app.ui_helpers import ThrottledCallback
 from app.ultimos_sorteos_tab import UltimosSorteosTab
-from loteria_hist import analytics
+from loteria_hist import analysis_cache, analytics
 from loteria_hist.bootstrap_db import ensure_user_database, read_seed_info
 from loteria_hist.paths import default_db_path, install_root
 from loteria_hist.sync_coordinator import SyncCoordinator, SyncMode
@@ -286,6 +286,7 @@ class MainWindow(ctk.CTk):
             self.btn_sync_full.configure(state="normal")
 
     def _reload_after_sync(self) -> None:
+        analysis_cache.invalidate(self.db_path)
         for key in list(self._loaded_game_keys):
             self.game_tabs[key].load_async()
         if self._ultimos_loaded:
