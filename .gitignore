@@ -18,3 +18,8 @@ dist/Loterias/
 dist/*.exe
 !dist/installers/**/*.exe
 *.spec.bak
+
+# Hermes / temp artifacts
+.hermes-tmp/
+.hermes-tmp/**
+markloto.md

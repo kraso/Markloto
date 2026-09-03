@@ -45,10 +45,15 @@ exclude = [
 ]
 
 [tool.flet.android]
+adaptive_icon_background = "#0c1018"
 permissions = [
     "android.permission.INTERNET",
     "android.permission.ACCESS_NETWORK_STATE",
 ]
+
+[tool.flet.splash]
+color = "#0c1018"
+dark_color = "#0c1018"
 
 [tool.flet.android.manifest_application]
 usesCleartextTraffic = "true"
