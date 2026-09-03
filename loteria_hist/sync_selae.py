@@ -57,26 +57,42 @@ def _fetch_selae_json(url: str) -> list[dict[str, Any]]:
         "Referer": "https://www.loteriasyapuestas.es/es/resultados",
     }
     last_err: str | None = None
+    data: list | dict | None = None
     for attempt in range(5):
-        r = cffi_requests.get(
-            url,
-            impersonate="chrome131",
-            timeout=90,
-            headers=headers,
-        )
-        if r.status_code == 200:
-            break
-        last_err = f"HTTP {r.status_code}: {r.text[:200]}"
-        if r.status_code in (429, 500, 502, 503, 504) and attempt < 4:
-            time.sleep(2**attempt)
-            continue
-        raise RuntimeError(f"SELAE {last_err}")
-    else:
-        raise RuntimeError(f"SELAE {last_err}")
+        try:
+            r = cffi_requests.get(
+                url,
+                impersonate="chrome131",
+                timeout=90,
+                headers=headers,
+            )
+        except Exception as e:  # conexion / timeout de red
+            last_err = f"request error: {e}"
+            if attempt < 4:
+                time.sleep(2**attempt)
+                continue
+            raise RuntimeError(f"SELAE {last_err}") from e
 
-    data = r.json()
+        if r.status_code != 200:
+            last_err = f"HTTP {r.status_code}: {r.text[:200]}"
+            if r.status_code in (429, 500, 502, 503, 504) and attempt < 4:
+                time.sleep(2**attempt)
+                continue
+            raise RuntimeError(f"SELAE {last_err}")
+
+        # La API a veces devuelve 200 con HTML (página Akamai) o cuerpo vacío.
+        try:
+            data = r.json()
+        except ValueError:
+            last_err = f"JSON inesperado (len={len(r.text)}): {r.text[:200]!r}"
+            if attempt < 4:
+                time.sleep(2**attempt)
+                continue
+            raise RuntimeError(f"SELAE {last_err}")
+        break
+
     if data is None:
-        return []
+        raise RuntimeError(f"SELAE {last_err}")
     if not isinstance(data, list):
         return []
     return data
