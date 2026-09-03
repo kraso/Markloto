@@ -41,6 +41,7 @@ exclude = [
     "scripts",
     ".cursor",
     "__pycache__",
+    "markloto-build-link",
 ]
 
 [tool.flet.android]

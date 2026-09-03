@@ -47,7 +47,10 @@ fi
 chmod +x scripts/prepare_android_assets.sh
 ./scripts/prepare_android_assets.sh
 
-echo "==> flet build apk (split por ABI)..."
+echo "==> flet build apk (split por ABI)...
+# Clean previous build artifacts that serious_python would otherwise include in app.zip.
+# The 'build/' dir from a prior run (Flutter SDK ~1.9 GB) makes APKs enormous.
+rm -rf build/
 export FLET_BUILD_VERBOSE=1
 set +e
 # No usar --project: en rutas con enlace provoca ValueError al renombrar el APK.
