@@ -36,7 +36,7 @@ fi
 # shellcheck source=/dev/null
 source "$VENV/bin/activate"
 python -m pip install -q --upgrade pip
-python -m pip install -q "flet>=0.85.0"
+python -m pip install -q "flet==0.85.1"  # 0.86.x incluye serious_python 4.6 que genera app.zip >4GB (bug Flet)
 
 if [[ "${MARKLOTO_SKIP_SEED:-}" != "1" ]] && [[ ! -f data/seed/loterias.sqlite ]]; then
   echo "==> Generando semilla (puede tardar)..."
