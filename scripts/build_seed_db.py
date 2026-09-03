@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""
-Genera data/seed/loterias.sqlite con histórico SELAE completo.
+"""Genera data/seed/loterias.sqlite con histórico SELAE.
 
-Ejecutar antes de empaquetar el instalador (tarda varios minutos):
+Por defecto: últimos 90 días (seed ligero ~1-2 MB, ideal para APKs).
+Con --full-history: histórico completo (varios GB).
 
-    py -3 scripts/build_seed_db.py
+Ejecutar antes de empaquetar el instalador:
+
+    py -3 scripts/build_seed_db.py              # seed ligero
+    py -3 scripts/build_seed_db.py --full-history  # histórico completo
 
 La semilla se copia al arranque si la BD del usuario está vacía; luego la app
 solo sincroniza novedades (incremental).
@@ -12,9 +15,10 @@ solo sincroniza novedades (incremental).
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,8 +34,29 @@ SEED_DIR = ROOT / "data" / "seed"
 SEED_DB = SEED_DIR / "loterias.sqlite"
 INFO_JSON = SEED_DIR / "seed_info.json"
 
+# Default: last 90 days for lightweight seeds (APKs / dev).
+# Full historical seed only on request (--full-history).
+DEFAULT_LIMIT_DAYS = 90
+
+
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument(
+        "--full-history",
+        action="store_true",
+        help="Descarga el histórico completo (desde 1985/1988/2004). Genera varios GB.",
+    )
+    p.add_argument(
+        "--limit-days",
+        type=int,
+        default=DEFAULT_LIMIT_DAYS,
+        help=f"Días hacia atrás desde hoy (default: {DEFAULT_LIMIT_DAYS}). Ignorado si --full-history.",
+    )
+    return p.parse_args()
+
 
 def main() -> None:
+    args = parse_args()
     SEED_DIR.mkdir(parents=True, exist_ok=True)
     if SEED_DB.exists():
         SEED_DB.unlink()
@@ -41,6 +66,12 @@ def main() -> None:
     ensure_performance_indexes(conn)
     conn.commit()
     fin = date.today()
+    if args.full_history:
+        fecha_min = None
+        nota = "Histórico SELAE completo hasta la fecha de generación."
+    else:
+        fecha_min = fin - timedelta(days=args.limit_days)
+        nota = f"Últimos {args.limit_days} días (seed ligero para APK). App completa histórico al iniciar."
     totals: dict[str, int] = {}
 
     print(f"==> Generando semilla en {SEED_DB}")
@@ -50,7 +81,7 @@ def main() -> None:
             conn,
             juego,
             fecha_fin=fin,
-            fecha_min=None,
+            fecha_min=fecha_min,
         )
         conn.commit()
         res = resumen_juego(conn, juego)
@@ -72,7 +103,7 @@ def main() -> None:
         "built_at": datetime.now().isoformat(timespec="seconds"),
         "fecha_max": fecha_max_global,
         "juegos": totals,
-        "nota": "Histórico SELAE hasta la fecha de generación; la app completa novedades al iniciar.",
+        "nota": nota,
     }
     INFO_JSON.write_text(json.dumps(info, indent=2, ensure_ascii=False), encoding="utf-8")
 
