@@ -107,6 +107,22 @@ else
   echo "  -> ADVERTENCIA: $SITE_PKGS no existe — flutter build puede fallar" >&2
 fi
 
+echo "==> Parcheando main.dart (BlankScreen background oscuro)..."
+# El template main.dart usa MaterialApp() sin theme, con BlankScreen que muestra
+# Scaffold blanco durante el loading entre prepareApp() y runPythonApp().
+# Parcheamos: (1) blank screen background #0c1018, (2) MaterialApp themeMode dark.
+MAIN_DART="$FLUTTER_DIR/lib/main.dart"
+if [[ -f "$MAIN_DART" ]]; then
+  # Replace BlankScreen's empty Scaffold with a dark-background Scaffold
+  sed -i 's|return const Scaffold(|return Scaffold(|g' "$MAIN_DART"
+  sed -i 's|body: SizedBox.shrink(),|body: SizedBox.shrink(), backgroundColor: Color(0xFF0c1018),|g' "$MAIN_DART"
+  # Add dark theme to all MaterialApp calls (so blank screen has dark background)
+  sed -i 's|return MaterialApp(|return MaterialApp(themeMode: ThemeMode.dark,|g' "$MAIN_DART"
+  echo "  -> main.dart parcheado (BlankScreen + MaterialApp dark theme)"
+else
+  echo "  -> ADVERTENCIA: $MAIN_DART no encontrado, no se puede parchear" >&2
+fi
+
 set +e
 cd "$FLUTTER_DIR"
 # Remove Flet's pre-built APKs so we only keep our rebuilt ones.
@@ -118,7 +134,7 @@ flutter build apk --split-per-abi --no-version-check --suppress-analytics
 FLUTTER_RC=$?
 set -e
 if [[ "$FLUTTER_RC" -ne 0 ]]; then
-  echo "AVISO: flutter build apk terminó con código $FLUTTER_RC — usando APKs de flet build (sin NormalTheme fix)" >&2
+  echo "AVISO: flutter build apk terminó con código $FLUTTER_RC" >&2
 fi
 
 mkdir -p "$OUT_DIR"
