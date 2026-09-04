@@ -54,24 +54,84 @@ rm -rf build/
 export FLET_BUILD_VERBOSE=1
 set +e
 # No usar --project: en rutas con enlace provoca ValueError al renombrar el APK.
-# --template: usa nuestro template parcheado con BlankScreen #0c1018 + themeMode:dark
-flet build apk --split-per-abi \
-  --template gh:kraso/flet-template-markloto \
-  --template-dir build \
-  --template-ref main \
-  --clear-cache
+flet build apk --split-per-abi --clear-cache
 FLET_RC=$?
 set -e
 if [[ "$FLET_RC" -ne 0 ]]; then
   echo "AVISO: flet build terminó con código $FLET_RC (suele fallar solo al copiar/renombrar; buscando APK...)" >&2
 fi
 
+FLUTTER_DIR="$ROOT/build/flutter"
+if [[ ! -d "$FLUTTER_DIR" ]]; then
+  echo "ERROR: No existe $FLUTTER_DIR — flet build no generó el projecto Flutter." >&2
+  exit 1
+fi
+
+echo "==> Parcheando NormalTheme (styles.xml)..."
+# El template flet-build-template usa "?android:colorBackground" en el NormalTheme, que en
+# tema claro (Theme.Light) es BLANCO. Flutter quitamos el splash y aplica NormalTheme antes
+# de que el Flutter UI renderice o que serious_python arranque Python → pantalla blanca.
+# Parcheamos styles.xml para usar #0c1018 (dark theme de Markloto).
+for styles in \
+  "$FLUTTER_DIR/android/app/src/main/res/values/styles.xml" \
+  "$FLUTTER_DIR/android/app/src/main/res/values-night/styles.xml"; do
+  if [[ -f "$styles" ]]; then
+    sed -i 's|?android:colorBackground|#0c1018|g' "$styles"
+    echo "  -> $styles (NormalTheme parcheado)"
+  fi
+done
+
+echo "==> Parcheando main.dart (BlankScreen + MaterialApp dark)..."
+MAIN_DART="$FLUTTER_DIR/lib/main.dart"
+# BlankScreen: Scaffold const -> add backgroundColor Color(0xFF0c1018)
+# This forces the Dart source content hash to change, invalidating Gradle/Dart cache.
+sed -i 's|body: SizedBox.shrink(),|body: SizedBox.shrink(),\n      backgroundColor: Color(0xFF0c1018),|g' "$MAIN_DART"
+# MaterialApp loading state: add themeMode: ThemeMode.dark + darkTheme
+sed -i 's|return MaterialApp(|return MaterialApp(themeMode: ThemeMode.dark, darkTheme: ThemeData.dark(), |' "$MAIN_DART"
+
+echo "  -> main.dart parcheado:"
+grep -n "backgroundColor\|themeMode\|darkTheme" "$MAIN_DART" | head -5
+
+echo "==> Parcheando flutter_native_splash color en pubspec.yaml..."
+PUBspec="$FLUTTER_DIR/pubspec.yaml"
+sed -i "s|color: '#ffffff'|color: '#0c1018'|g" "$PUBspec"
+sed -i "s|color_dark: '#222222'|color_dark: '#0c1018'|g" "$PUBspec"
+
+echo "==> flutter build apk (rebuild con todos los parches de Dart)..."
+# Force Dart recompilation by clearing the Gradle build cache + Dart kernel cache.
+# The "--no-build-cache" flag is a Gradle flag that must be passed AFTER "--".
+FLUTTER_SDK_DIR="$HOME/flutter"
+export PATH="$FLUTTER_SDK_DIR:$PATH"
+for fv in "$FLUTTER_SDK_DIR"/*/; do
+  [[ -d "$fv/bin" ]] && export PATH="$fv/bin:$PATH"
+done
+FLUTTER_BIN=$(command -v flutter 2>/dev/null || echo "$FLUTTER_SDK_DIR/3.41.7/bin")
+if [[ -z "$FLUTTER_BIN" || "$FLUTTER_BIN" == "$FLUTTER_SDK_DIR/3.41.7/bin" ]]; then
+  echo "  -> flutter encontrado via PATH de flet"
+else
+  echo "  -> flutter encontrado en: $FLUTTER_BIN"
+fi
+
+cd "$FLUTTER_DIR"
+# Clear Dart kernel cache to force full recompilation.
+rm -rf .dart_tool/flutter_build
+rm -rf build/app/intermediates/mergedJsCompiled
+# Use --no-build-cache (Gradle flag) to disable build cache, forcing full rebuild.
+set +e
+flutter build apk --split-per-abi --no-build-cache 2>&1
+FLUTTER_RC=$?
+set -e
+if [[ "$FLUTTER_RC" -ne 0 ]]; then
+  echo "  -> ADVERTENCIA: flutter build apk terminó con código $FLUTTER_RC" >&2
+  # The APKs might still have been generated; continue.
+fi
+cd "$ROOT"
+
 echo "==> Copiando APKs a $OUT_DIR..."
 mkdir -p "$OUT_DIR"
-for apk_file in "$ROOT"/build/app/outputs/flutter-apk/*-release.apk; do
+for apk_file in "$FLUTTER_DIR"/build/app/outputs/flutter-apk/*-release.apk; do
   if [[ -f "$apk_file" ]]; then
     base_name=$(basename "$apk_file")
-    # Renombrar: app-arm64-v8a-release.apk -> markloto_VERSION_arm64-v8a-release.apk
     arch=$(echo "$base_name" | sed 's/app-//; s/-release\.apk//')
     dest="$OUT_DIR/markloto_${VERSION}_${arch}.apk"
     cp "$apk_file" "$dest"
