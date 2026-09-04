@@ -97,6 +97,18 @@ else
   export PATH="$FLUTTER_SDK_DIR/3.41.7/bin:$PATH"
 fi
 
+# Parcheamos el pubspec.yaml del flutter_dir para que flutter_native_splash
+# use #0c1018 como color de splash (en vez de '#ffffff' que tiene el template).
+# Esto es crítico: el flutter build apk rebuild re-ejecuta flutter_native_splash:run,
+# que regenera drawable/launch_background.xml. Si el color es blanco, el splash
+# inicial es blanco → pantalla blanca antes de que Flutter engine arranque.
+PUBSPEC="$FLUTTER_DIR/pubspec.yaml"
+if [[ -f "$PUBSPEC" ]]; then
+  sed -i "s|color: '#ffffff'|color: '#0c1018'|g" "$PUBSPEC"
+  sed -i "s|color_dark: '#222222'|color_dark: '#0c1018'|g" "$PUBSPEC"
+  echo "  -> pubspec.yaml: flutter_native_splash color -> #0c1018"
+fi
+
 # serious_python plugin needs this env var to find site-packages.
 # flet-cli sets it during flet build, but our standalone flutter rebuild needs it too.
 SITE_PKGS="$ROOT/build/site-packages"
@@ -131,14 +143,16 @@ cd "$FLUTTER_DIR"
 rm -rf "$ROOT/build/apk" 2>/dev/null || true
 flutter pub get --suppress-analytics 2>/dev/null || true
 # Force Dart recompilation so main.dart patches take effect.
-# The Gradle/Dart incremental cache would otherwise reuse the stale libapp.so
-# from flet-build (which had the unpatched main.dart). We delete only the
-# Dart intermediates, NOT the entire build/ (which flutter_native_splash
-# and flutter_launcher_icons resources live in).
-rm -rf "$FLUTTER_DIR/build/app/intermediates/flutter" 2>/dev/null || true
-rm -rf "$FLUTTER_DIR/build/app/intermediates/merge" 2>/dev/null || true
-rm -f "$FLUTTER_DIR/build/app/intermediates/stripDebugSymbol/release/0/libapp.so" 2>/dev/null || true
-flutter build apk --split-per-abi --no-version-check --suppress-analytics
+# Three approaches combined to guarantee the Dart compiler sees the patched
+# main.dart (otherwise Gradle/Dart incremental cache reuses stale libapp.so):
+#   1. Delete ALL intermetediates (Dart snapshot, stripDebugSymbol, etc.)
+#   2. touch main.dart to invalidate Gradle's incremental build
+#   3. Use --dart-define with a unique timestamp to bypass Gradle cache entirely
+rm -rf "$FLUTTER_DIR/build/app/intermediates" 2>/dev/null || true
+rm -rf "$FLUTTER_DIR/build/app/outputs" 2>/dev/null || true
+touch "$MAIN_DART"
+FORCE_DART_RECOMPILE=$(date +%s)
+flutter build apk --split-per-abi --no-version-check --dart-define=FORCE_DART_RECOMPILE=$FORCE_DART_RECOMPILE --suppress-analytics
 FLUTTER_RC=$?
 set -e
 if [[ "$FLUTTER_RC" -ne 0 ]]; then
