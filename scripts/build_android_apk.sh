@@ -58,7 +58,41 @@ yes | flet build apk --split-per-abi
 FLET_RC=$?
 set -e
 if [[ "$FLET_RC" -ne 0 ]]; then
-  echo "AVISO: flet build terminó con código $FLET_RC (suele fallar solo al copiar/renombrar; buscando APK…)">&2
+  echo "AVISO: flet build terminó con código $FLET_RC (suele fallar solo al copiar/renombrar; buscando APK…)" >&2
+fi
+
+echo "==> Parcheando NormalTheme (fix pantalla blanca en Android)..."
+# El template flet-build-template usa "?android:colorBackground" en el NormalTheme, que en
+# tema claro (Theme.Light) es BLANCO. Flutter quitamos el splash y aplica NormalTheme antes
+# de que el Flutter UI renderice o que serious_python arranque Python → pantalla blanca.
+# Parcheamos styles.xml para usar #0c1018 (dark theme de Markloto) como fondo del NormalTheme.
+FLUTTER_DIR="$ROOT/build/flutter"
+if [[ ! -d "$FLUTTER_DIR" ]]; then
+  echo "ERROR: No existe $FLUTTER_DIR — flet build no generó el projecto Flutter." >&2
+  exit 1
+fi
+for styles in \
+  "$FLUTTER_DIR/android/app/src/main/res/values/styles.xml" \
+  "$FLUTTER_DIR/android/app/src/main/res/values-night/styles.xml"; do
+  if [[ -f "$styles" ]]; then
+    sed -i 's|?android:colorBackground|#0c1018|g' "$styles"
+    echo "  -> $styles (NormalTheme parcheado)"
+  fi
+done
+
+echo "==> flutter build apk (rebuild con NormalTheme corregido)..."
+# Need flutter in PATH — flet-cli installed it but it may not be on PATH
+export PATH="$HOME/.flet/bin:$PATH"
+flutter --version
+set +e
+cd "$FLUTTER_DIR"
+yes | flutter clean
+flutter pub get --suppress-analytics 2>/dev/null
+flutter build apk --split-per-abi --no-version-check --suppress-analytics
+FLUTTER_RC=$?
+set -e
+if [[ "$FLUTTER_RC" -ne 0 ]]; then
+  echo "AVISO: flutter build apk terminó con código $FLUTTER_RC" >&2
 fi
 
 mkdir -p "$OUT_DIR"
