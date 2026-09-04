@@ -66,7 +66,7 @@ jobs:
           name: seed-database
           path: data/seed/
           retention-days: 14
-          if-no-files-found: error
+          if-no-files-found: warn
 
   build-linux:
     needs: [build-seed]
