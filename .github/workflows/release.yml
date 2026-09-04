@@ -237,5 +237,6 @@ jobs:
             dist/release/*
           fail_on_unmatched_files: false
           prerelease: ${{ contains(steps.ver.outputs.tag, '-') }}
+          overwrite: true  # Reemplazar assets existentes en un Release reutilizado (tag force-push)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
