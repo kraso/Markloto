@@ -49,12 +49,12 @@ chmod +x scripts/prepare_android_assets.sh
 
 echo "==> flet build apk (split por ABI)..."
 # Clean previous build artifacts that serious_python would otherwise include in app.zip.
-# The 'build/' dir from a prior run (Flutter SDK ~1.9 GB) makes APKs enormous.
 rm -rf build/
 export FLET_BUILD_VERBOSE=1
 set +e
-# No usar --project: en rutas con enlace provoca ValueError al renombrar el APK.
-flet build apk --split-per-abi --clear-cache
+# `yes |` answers flet-cli prompts (e.g. Flutter SDK reinstall confirmation).
+# NO --clear-cache here: it deletes Flutter SDK and causes EOFError in CI (no TTY).
+yes | flet build apk --split-per-abi
 FLET_RC=$?
 set -e
 if [[ "$FLET_RC" -ne 0 ]]; then
@@ -68,10 +68,6 @@ if [[ ! -d "$FLUTTER_DIR" ]]; then
 fi
 
 echo "==> Parcheando NormalTheme (styles.xml)..."
-# El template flet-build-template usa "?android:colorBackground" en el NormalTheme, que en
-# tema claro (Theme.Light) es BLANCO. Flutter quitamos el splash y aplica NormalTheme antes
-# de que el Flutter UI renderice o que serious_python arranque Python → pantalla blanca.
-# Parcheamos styles.xml para usar #0c1018 (dark theme de Markloto).
 for styles in \
   "$FLUTTER_DIR/android/app/src/main/res/values/styles.xml" \
   "$FLUTTER_DIR/android/app/src/main/res/values-night/styles.xml"; do
@@ -83,11 +79,17 @@ done
 
 echo "==> Parcheando main.dart (BlankScreen + MaterialApp dark)..."
 MAIN_DART="$FLUTTER_DIR/lib/main.dart"
-# BlankScreen: Scaffold const -> add backgroundColor Color(0xFF0c1018)
-# This forces the Dart source content hash to change, invalidating Gradle/Dart cache.
-sed -i 's|body: SizedBox.shrink(),|body: SizedBox.shrink(),\n      backgroundColor: Color(0xFF0c1018),|g' "$MAIN_DART"
-# MaterialApp loading state: add themeMode: ThemeMode.dark + darkTheme
-sed -i 's|return MaterialApp(|return MaterialApp(themeMode: ThemeMode.dark, darkTheme: ThemeData.dark(), |' "$MAIN_DART"
+# Add backgroundColor to BlankScreen's Scaffold — changes Dart input hash,
+# invalidating Dart kernel cache and forcing recompilation in the next build.
+# CRITICAL: remove 'const' from 'const Scaffold(' so Color(0xFF0c1018) (which is
+# NOT a const literal context in sed) is valid Dart. If 'const' is kept,
+# 'const Scaffold(backgroundColor: Color(...))' fails Dart AOT compilation
+# because Color(0xFF0c1018) is not a const expression → the recompile error is
+# swallowed by 'set +e' and stale APKs from flet build are used → white screen.
+sed -i 's|return const Scaffold(|return Scaffold(|g' "$MAIN_DART"
+sed -i 's|body: SizedBox.shrink(),|body: SizedBox.shrink(),\n      backgroundColor: const Color(0xFF0c1018),|g' "$MAIN_DART"
+# Add themeMode: ThemeMode.dark to the MaterialApp loading state
+sed -i 's|return MaterialApp(|return MaterialApp(themeMode: ThemeMode.dark, darkTheme: ThemeData.dark(), |g' "$MAIN_DART"
 
 echo "  -> main.dart parcheado:"
 grep -n "backgroundColor\|themeMode\|darkTheme" "$MAIN_DART" | head -5
@@ -97,33 +99,29 @@ PUBspec="$FLUTTER_DIR/pubspec.yaml"
 sed -i "s|color: '#ffffff'|color: '#0c1018'|g" "$PUBspec"
 sed -i "s|color_dark: '#222222'|color_dark: '#0c1018'|g" "$PUBspec"
 
-echo "==> flutter build apk (rebuild con todos los parches de Dart)..."
-# Force Dart recompilation by clearing the Gradle build cache + Dart kernel cache.
-# The "--no-build-cache" flag is a Gradle flag that must be passed AFTER "--".
+echo "==> flutter build apk (rebuild con parches de Dart)..."
+# Clear Dart kernel cache to force recompilation of libapp.so.
 FLUTTER_SDK_DIR="$HOME/flutter"
 export PATH="$FLUTTER_SDK_DIR:$PATH"
 for fv in "$FLUTTER_SDK_DIR"/*/; do
   [[ -d "$fv/bin" ]] && export PATH="$fv/bin:$PATH"
 done
 FLUTTER_BIN=$(command -v flutter 2>/dev/null || echo "$FLUTTER_SDK_DIR/3.41.7/bin")
-if [[ -z "$FLUTTER_BIN" || "$FLUTTER_BIN" == "$FLUTTER_SDK_DIR/3.41.7/bin" ]]; then
-  echo "  -> flutter encontrado via PATH de flet"
-else
-  echo "  -> flutter encontrado en: $FLUTTER_BIN"
-fi
+echo "  -> flutter encontrado en: $FLUTTER_BIN"
 
 cd "$FLUTTER_DIR"
-# Clear Dart kernel cache to force full recompilation.
+# Force Dart recompilation: the sed above changed main.dart content hash,
+# which should invalidate Dart kernel cache automatically.
+# Also remove stale .dart_tool to be extra safe.
 rm -rf .dart_tool/flutter_build
-rm -rf build/app/intermediates/mergedJsCompiled
-# Use --no-build-cache (Gradle flag) to disable build cache, forcing full rebuild.
 set +e
-flutter build apk --split-per-abi --no-build-cache 2>&1
+# Clear Gradle build cache to force full recompile
+rm -rf build/app/intermediates/flutter-ap/
+flutter build apk --split-per-abi 2>&1
 FLUTTER_RC=$?
 set -e
 if [[ "$FLUTTER_RC" -ne 0 ]]; then
   echo "  -> ADVERTENCIA: flutter build apk terminó con código $FLUTTER_RC" >&2
-  # The APKs might still have been generated; continue.
 fi
 cd "$ROOT"
 
@@ -135,7 +133,7 @@ for apk_file in "$FLUTTER_DIR"/build/app/outputs/flutter-apk/*-release.apk; do
     arch=$(echo "$base_name" | sed 's/app-//; s/-release\.apk//')
     dest="$OUT_DIR/markloto_${VERSION}_${arch}.apk"
     cp "$apk_file" "$dest"
-    echo "  -> $dest"
+    echo "  -> $dest ($(stat -c%s "$dest") bytes)"
   fi
 done
 
