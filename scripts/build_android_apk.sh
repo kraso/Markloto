@@ -114,6 +114,17 @@ cd "$FLUTTER_DIR"
 # which should invalidate Dart kernel cache automatically.
 # Also remove stale .dart_tool to be extra safe.
 rm -rf .dart_tool/flutter_build
+# serious_python plugin needs this env var to find site-packages, else the
+# standalone flutter rebuild fails with "SERIOUS_PYTHON_SITE_PACKAGES
+# environment variable is not set". flet-cli sets it during flet build; our
+# standalone rebuild must export it too or the rebuilt libapp.so is never made.
+SITE_PKGS="$ROOT/build/site-packages"
+if [[ -d "$SITE_PKGS" ]]; then
+  export SERIOUS_PYTHON_SITE_PACKAGES="$SITE_PKGS"
+  echo "  -> SERIOUS_PYTHON_SITE_PACKAGES=$SITE_PKGS"
+else
+  echo "  -> ADVERTENCIA: $SITE_PKGS no existe — flutter build puede fallar" >&2
+fi
 set +e
 # Clear Gradle build cache to force full recompile
 rm -rf build/app/intermediates/flutter-ap/
