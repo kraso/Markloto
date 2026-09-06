@@ -114,6 +114,11 @@ cd "$FLUTTER_DIR"
 # which should invalidate Dart kernel cache automatically.
 # Also remove stale .dart_tool to be extra safe.
 rm -rf .dart_tool/flutter_build
+# Flutter tool needs ANDROID_HOME for the standalone rebuild (it does not read
+# android/local.properties during SDK detection). flet-cli sets it internally;
+# our standalone rebuild must export it too.
+export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/sdk}"
+echo "  -> ANDROID_HOME=$ANDROID_HOME"
 # serious_python plugin needs this env var to find site-packages, else the
 # standalone flutter rebuild fails with "SERIOUS_PYTHON_SITE_PACKAGES
 # environment variable is not set". flet-cli sets it during flet build; our
