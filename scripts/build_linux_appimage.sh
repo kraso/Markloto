@@ -132,6 +132,8 @@ cp assets/icon.png "$APPDIR/usr/share/icons/hicolor/256x256/apps/markloto.png"
 # Enlace que linuxdeploy/appimagetool esperan en la raíz del AppDir.
 cp "$APPDIR/usr/share/applications/markloto.desktop" "$APPDIR/markloto.desktop"
 cp "$APPDIR/usr/share/icons/hicolor/256x256/apps/markloto.png" "$APPDIR/markloto.png"
+# .DirIcon: icono que muestran los gestores de archivos/menús para el AppImage.
+cp "$APPDIR/markloto.png" "$APPDIR/.DirIcon"
 
 echo "==> linuxdeploy (usa el binario PyInstaller como ejecutable)..."
 # linuxdeploy espera el binario en usr/bin con el nombre de la app.

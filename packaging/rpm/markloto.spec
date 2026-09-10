@@ -18,6 +18,7 @@ Source1:        markloto.launcher.sh
 Source2:        markloto.desktop
 Source3:        copyright
 Source4:        LEEME-instalacion.txt
+Source5:        markloto.png
 
 # El binario PyInstaller ya embebe tkinter, libX11, libssl, sqlite, etc.
 # Solo se requieren bibliotecas base del sistema.
@@ -47,6 +48,9 @@ install -m 0755 %{SOURCE1} %{buildroot}/usr/bin/markloto
 mkdir -p %{buildroot}/usr/share/applications
 install -m 0644 %{SOURCE2} %{buildroot}/usr/share/applications/markloto.desktop
 
+mkdir -p %{buildroot}/usr/share/icons/hicolor/512x512/apps
+install -m 0644 %{SOURCE5} %{buildroot}/usr/share/icons/hicolor/512x512/apps/markloto.png
+
 mkdir -p %{buildroot}/usr/share/doc/markloto
 install -m 0644 %{SOURCE3} %{buildroot}/usr/share/doc/markloto/copyright
 install -m 0644 %{SOURCE4} %{buildroot}/usr/share/doc/markloto/README.txt
@@ -70,6 +74,7 @@ exit 0
 /usr/share/markloto/*
 /usr/bin/markloto
 /usr/share/applications/markloto.desktop
+/usr/share/icons/hicolor/512x512/apps/markloto.png
 /usr/share/doc/markloto/copyright
 /usr/share/doc/markloto/README.txt
 

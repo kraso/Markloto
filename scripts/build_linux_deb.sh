@@ -112,6 +112,11 @@ install_lf packaging/debian/markloto.launcher.sh "$STAGING/usr/bin/markloto" 755
 cp packaging/debian/markloto.desktop "$STAGING/usr/share/applications/markloto.desktop"
 chmod 644 "$STAGING/usr/share/applications/markloto.desktop"
 
+# Icono de la app (Icon=markloto en el .desktop).
+mkdir -p "$STAGING/usr/share/icons/hicolor/512x512/apps"
+cp assets/icon.png "$STAGING/usr/share/icons/hicolor/512x512/apps/markloto.png"
+chmod 644 "$STAGING/usr/share/icons/hicolor/512x512/apps/markloto.png"
+
 cp packaging/debian/copyright "$STAGING/usr/share/doc/markloto/copyright"
 cp packaging/debian/LEEME-instalacion.txt "$STAGING/usr/share/doc/markloto/README.txt"
 

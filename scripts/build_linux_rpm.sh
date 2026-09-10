@@ -104,6 +104,9 @@ for f in markloto.launcher.sh markloto.desktop copyright LEEME-instalacion.txt; 
   sed 's/\r$//' "packaging/rpm/$f" > "$TOPDIR/SOURCES/$f"
 done
 
+# Icono de la app (Icon=markloto en el .desktop).
+cp assets/icon.png "$TOPDIR/SOURCES/markloto.png"
+
 sed -e "s/@VERSION@/$VERSION/g" \
     -e "s/@ARCH@/$RPM_ARCH/g" \
     packaging/rpm/markloto.spec > "$TOPDIR/SPECS/markloto.spec"
