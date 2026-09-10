@@ -3,7 +3,7 @@
 #   - Python 3.11+ x64
 #   - Inno Setup 6 (https://jrsoftware.org/isdl.php) -> ISCC.exe en PATH o ruta habitual
 # Salida:
-#   dist\installers\windows-x64\Markloto-VERSION-win64-Setup.exe
+#   dist\installers\windows-x64\markloto_VERSION_win64_setup.exe
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
@@ -11,7 +11,7 @@ Set-Location $Root
 
 $Version = (Get-Content "VERSION" -Raw).Trim()
 $OutBase = Join-Path $Root "dist\installers\windows-x64"
-$SetupName = "Markloto-$Version-win64-Setup.exe"
+$SetupName = "markloto_$Version" + "_win64_setup.exe"
 $SetupPath = Join-Path $OutBase $SetupName
 $StagingDir = Join-Path $Root "build\windows-staging"
 

@@ -6,7 +6,7 @@
 #   ./scripts/build_linux_rpm.sh
 #
 # Salida:
-#   dist/installers/linux-<arch>/markloto-<VERSION>-1.<arch>.rpm
+#   dist/installers/linux-<arch>/markloto_<VERSION>_<arch>.rpm
 #
 # Requisitos (Fedora):
 #   sudo dnf install python3 python3-venv python3-devel python3-tkinter \
@@ -40,7 +40,7 @@ case "$UNAME_M" in
     ;;
 esac
 
-RPM_NAME="markloto-${VERSION}-1.${RPM_ARCH}.rpm"
+RPM_NAME="markloto_${VERSION}_${RPM_ARCH}.rpm"
 OUT_BASE="$ROOT/dist/installers/$OUT_DIR"
 RPM_PATH="$OUT_BASE/$RPM_NAME"
 
@@ -117,7 +117,13 @@ rpmbuild --define "_topdir $TOPDIR" --define "_binary_payload w9.gzdio" \
 
 mkdir -p "$OUT_BASE"
 rm -f "$RPM_PATH"
-cp -f "$TOPDIR"/RPMS/"$RPM_ARCH"/"$RPM_NAME" "$RPM_PATH"
+# rpmbuild genera "markloto-<VERSION>-1.<arch>.rpm"; renombrar al esquema unificado.
+RPM_BUILT="$TOPDIR"/RPMS/"$RPM_ARCH"/markloto-${VERSION}-1.${RPM_ARCH}.rpm
+if [[ ! -f "$RPM_BUILT" ]]; then
+  echo "ERROR: No se encontró el rpm generado: $RPM_BUILT" >&2
+  exit 1
+fi
+cp -f "$RPM_BUILT" "$RPM_PATH"
 
 rm -rf "$TOPDIR"
 if [[ "${MARKLOTO_CLEAN_DIST:-}" == "1" ]]; then

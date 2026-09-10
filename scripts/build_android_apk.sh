@@ -146,7 +146,7 @@ mkdir -p "$OUT_DIR"
 for apk_file in "$FLUTTER_DIR"/build/app/outputs/flutter-apk/*-release.apk; do
   if [[ -f "$apk_file" ]]; then
     base_name=$(basename "$apk_file")
-    arch=$(echo "$base_name" | sed 's/app-//; s/-release\.apk//')
+    arch=$(echo "$base_name" | sed 's/app-//; s/-release\.apk//; s/-/_/g')
     dest="$OUT_DIR/markloto_${VERSION}_${arch}.apk"
     cp "$apk_file" "$dest"
     echo "  -> $dest ($(stat -c%s "$dest") bytes)"

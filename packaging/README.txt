@@ -5,7 +5,7 @@ Windows x64 — INSTALADOR (.exe)
 -------------------------------
   1. Instala Inno Setup 6: https://jrsoftware.org/isdl.php
   2. Ejecuta:  .\scripts\build_windows.ps1
-  3. Salida: dist\installers\windows-x64\Markloto-VERSION-win64-Setup.exe
+  3. Salida: dist\installers\windows-x64\markloto_VERSION_win64_setup.exe
 
 Linux x64 / arm64 — PAQUETE .deb
 --------------------------------

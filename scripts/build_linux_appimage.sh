@@ -6,7 +6,7 @@
 #   ./scripts/build_linux_appimage.sh
 #
 # Salida:
-#   dist/installers/linux-<arch>/Markloto-<VERSION>-<arch>.AppImage
+#   dist/installers/linux-<arch>/markloto_<VERSION>_<arch>.AppImage
 #
 # Requisitos (Fedora):
 #   sudo dnf install python3 python3-venv python3-devel python3-tkinter gcc binutils \
@@ -36,7 +36,7 @@ case "$UNAME_M" in
     ;;
 esac
 
-APPIMAGE_NAME="Markloto-${VERSION}-${APP_ARCH}.AppImage"
+APPIMAGE_NAME="markloto_${VERSION}_${APP_ARCH}.AppImage"
 OUT_BASE="$ROOT/dist/installers/$OUT_DIR"
 APPIMAGE_PATH="$OUT_BASE/$APPIMAGE_NAME"
 TOOLS="$ROOT/build/bin"
