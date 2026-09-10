@@ -41,11 +41,11 @@ esac
 DEB_NAME="markloto_${VERSION}_${DEB_ARCH}.deb"
 OUT_BASE="$ROOT/dist/installers/$OUT_DIR"
 DEB_PATH="$OUT_BASE/$DEB_NAME"
-# En WSL con repo en /mnt/c/ los directorios salen 777 y dpkg-deb falla; usar tmpfs.
+# En WSL los directorios del repo salen 777 (drvfs) y dpkg-deb falla; usar tmpfs.
 STAGING="$ROOT/build/deb-staging"
-if [[ "$(uname -r 2>/dev/null)" == *microsoft* ]] && [[ "$ROOT" == /mnt/* ]]; then
+if [[ "$(uname -r 2>/dev/null)" == *microsoft* ]]; then
   STAGING="/tmp/markloto-deb-staging-$$"
-  echo "AVISO: staging del .deb en $STAGING (evita permisos 777 en /mnt/c)."
+  echo "AVISO: staging del .deb en $STAGING (evita permisos 777 en drvfs/WSL)."
 fi
 VENV="$ROOT/.venv-build-linux"
 BUILT="$ROOT/dist/Markloto"

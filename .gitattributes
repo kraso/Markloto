@@ -3,6 +3,9 @@
 *.sh text eol=lf
 scripts/** text eol=lf
 packaging/debian/** text eol=lf
+packaging/rpm/** text eol=lf
+packaging/appimage/AppRun text eol=lf
+packaging/appimage/markloto.desktop text eol=lf
 *.bash text eol=lf
 packaging/debian/postinst text eol=lf
 packaging/debian/prerm text eol=lf

@@ -3,7 +3,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-for f in scripts/*.sh packaging/debian/*.sh; do
+for f in scripts/*.sh packaging/debian/*.sh packaging/rpm/*.sh packaging/appimage/AppRun; do
   if [[ -f "$f" ]]; then
     sed -i 's/\r$//' "$f"
     chmod +x "$f"

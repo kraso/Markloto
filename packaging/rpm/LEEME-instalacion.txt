@@ -1,0 +1,37 @@
+Markloto — instalación en Linux (paquete .deb)
+==============================================
+
+Instalar (los dos pasos son obligatorios):
+
+  sudo dpkg -i markloto-VERSION-ARCH.deb
+  sudo apt-get install -f
+
+El segundo comando instala python3-tk y demás dependencias que dpkg no
+resuelve solo. Si omites apt-get install -f verás errores de dependencias.
+
+Alternativa en un solo paso:
+
+  sudo apt install ./markloto-VERSION-ARCH.deb
+
+Si al ejecutar markloto aparece "No module named 'tkinter'":
+  instala el paquete corregido (v1.0.2 o superior) o, como mínimo:
+    sudo apt install python3-tk
+    sudo apt-get install -f
+  Si sigue fallando, el .deb se generó sin tkinter: reinstala desde GitHub Releases.
+
+Si dpkg falla en postinst ("No existe el archivo o el directorio"):
+  el .deb se generó con scripts Windows (CRLF). Reconstruye el paquete en
+  Linux/WSL con el build_linux_deb.sh actualizado, o repara:
+    sudo sed -i 's/\r$//' /var/lib/dpkg/info/markloto.postinst
+    sudo sed -i 's/\r$//' /var/lib/dpkg/info/markloto.prerm
+    sudo dpkg --configure markloto
+
+Desinstalar:
+
+  sudo apt remove markloto
+
+Datos del usuario (no se borran al desinstalar):
+
+  ~/.markloto/data/loterias.sqlite
+
+Ejecutar desde el menú de aplicaciones o: markloto
