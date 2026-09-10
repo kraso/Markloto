@@ -24,3 +24,4 @@ CREATE TABLE IF NOT EXISTS numeros_sorteo (
 
 CREATE INDEX IF NOT EXISTS idx_sorteos_juego_fecha ON sorteos (juego, fecha);
 CREATE INDEX IF NOT EXISTS idx_sorteos_juego ON sorteos (juego);
+CREATE INDEX IF NOT EXISTS idx_numeros_tipo_valor ON numeros_sorteo (tipo, valor);

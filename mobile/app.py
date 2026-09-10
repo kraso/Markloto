@@ -43,8 +43,22 @@ def _material_icon(name: str, *, fallback: str = "casino") -> str:
 
 class MarklotoMobile:
     def __init__(self, page: ft.Page) -> None:
+        import sys as _sys, time as _time, os as _os
+        def _t(m):
+            line = f"[{_time.monotonic():.3f}] init: {m}\n"
+            _sys.stderr.write(line)
+            for _p in ("/storage/emulated/0/Android/data/es.kraso.markloto.markloto/files/trace.log", "/sdcard/Download/markloto_trace.log"):
+                try:
+                    with open(_p, "a") as f:
+                        f.write(line); f.flush()
+                    break
+                except Exception:
+                    continue
+        _t("MarklotoMobile.__init__ ENTERED")
         self.page = page
+        _t("configure_mobile_storage...")
         configure_mobile_storage(page)
+        _t("configure_mobile_storage DONE")
         self.db_path = default_db_path()
         self._sync = SyncCoordinator(self.db_path)
         self._periodo_labels = dict(ETIQUETAS_PERIODO_UI)
@@ -94,6 +108,7 @@ class MarklotoMobile:
                 ),
             ],
         )
+        _t("page.add...")
         page.add(
             ft.Column(
                 [
@@ -109,8 +124,11 @@ class MarklotoMobile:
                 expand=True,
             )
         )
+        _t("page.add DONE, _update_tab_bar...")
         self._update_tab_bar()
+        _t("page.update...")
         page.update()
+        _t("page.update DONE, starting bootstrap thread")
         threading.Thread(target=self._bootstrap_database, daemon=True).start()
 
     def _ui(self, fn) -> None:
@@ -556,8 +574,24 @@ class MarklotoMobile:
 
 def main(page: ft.Page) -> None:
     try:
+        import sys as _sys, time as _time
+        def _t(m):
+            line = f"[{_time.monotonic():.3f}] app: {m}\n"
+            _sys.stderr.write(line)
+            for _p in ("/storage/emulated/0/Android/data/es.kraso.markloto.markloto/files/trace.log", "/sdcard/Download/markloto_trace.log"):
+                try:
+                    with open(_p, "a") as f:
+                        f.write(line); f.flush()
+                    break
+                except Exception:
+                    continue
+        _t("main(page) ENTERED")
+        _t(f"page type={type(page).__name__}")
         MarklotoMobile(page)
+        _t("MarklotoMobile(page) DONE")
     except Exception as exc:
+        _t(f"EXCEPTION in main: {exc}")
+        import traceback; _t(traceback.format_exc())
         page.scroll = None
         page.bgcolor = "#07090d"
         page.add(
